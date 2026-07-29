@@ -29,3 +29,10 @@
             DEBUG_BREAK();                                                                                                                           \
         }                                                                                                                                            \
     } while (0)
+
+// ASSERT_RAISE() - Raise on the expression without actually evaluating it
+#define ASSERT_RAISE(expr)                                                                                                                           \
+    do {                                                                                                                                             \
+        ERROR_RE_DETAILED("ASSERT", #expr);                                                                                                          \
+        DEBUG_BREAK();                                                                                                                               \
+    } while (0)
