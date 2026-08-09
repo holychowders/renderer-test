@@ -116,7 +116,7 @@ static inline B32 win32gl_glew_init(void) {
 
 ////////////////////////////////////////////////////////////////////////// SECTION: OPENGL FUNCTIONS (SHADERS)
 
-static B32 shader_source_verify(GLuint shader, GLenum shader_type) {
+static inline B32 shader_source_verify(GLuint shader, GLenum shader_type) {
     GLint compile_success = GL_FALSE;
     GL(glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_success));
     if (!compile_success) {
@@ -138,7 +138,7 @@ static B32 shader_source_verify(GLuint shader, GLenum shader_type) {
     return true;
 }
 
-static B32 shader_program_bind(GLuint prg) {
+static inline B32 shader_program_bind(GLuint prg) {
     if (!prg) {
         error_re("GL", "Failed to bind shader program (null shader program provided)");
         return false;
@@ -147,17 +147,17 @@ static B32 shader_program_bind(GLuint prg) {
     return true;
 }
 
-static void shader_program_unbind() {
+static inline void shader_program_unbind(void) {
     GL(glUseProgram(0));
 }
 
-static GLint shader_program_get_uniform_location(GLuint shader_program, const char *name) {
+static inline GLint shader_program_get_uniform_location(GLuint shader_program, const char *name) {
     GL(GLint location = glGetUniformLocation(shader_program, name));
     if (location == -1) { fwarn(NULL, "Failed to get uniform location: %s", name); }
     return location;
 }
 
-static B32 shader_program_verify(GLuint prg) {
+static inline B32 shader_program_verify(GLuint prg) {
     // Check Link Status
     GLint link_success = GL_FALSE;
     GL(glGetProgramiv(prg, GL_LINK_STATUS, &link_success));
@@ -185,7 +185,7 @@ static B32 shader_program_verify(GLuint prg) {
 }
 
 /// Returns created shader program object. Returns 0 on failure.
-static GLuint shader_program_create(const char *vs_src, const char *fs_src) {
+static inline GLuint shader_program_create(const char *vs_src, const char *fs_src) {
     ASSERT(vs_src);
     ASSERT(fs_src);
 
@@ -237,7 +237,7 @@ static inline size_t str_trim_trailing_newline(char *str, size_t len) {
     return len;
 }
 
-static void win32_print_last_error(const char *re) {
+static inline void win32_print_last_error(const char *re) {
     char *msg = { 0 };
     DWORD code = GetLastError();
     DWORD len = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
@@ -279,9 +279,7 @@ static inline LRESULT CALLBACK win32_window_proc(HWND hWnd, UINT uMsg, WPARAM wP
     return result;
 }
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
-    (void)nShowCmd, (void)lpCmdLine, (void)hPrevInstance;
-
+static inline HWND win32gl_create_window(HINSTANCE hInstance) {
     WNDCLASSEXA wc = { 0 };
     wc.cbSize = sizeof(WNDCLASSEX);
     wc.style = CS_OWNDC;
@@ -304,14 +302,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                                          NULL // misc
     );
 
-    if (!window_handle) {
-        WIN32_ERROR_DETAILED("Failed to create window");
-        return -1;
-    }
+    return window_handle;
+}
 
-    // Create OpenGL context
-    HDC window_dc = GetDC(window_handle);
-
+static inline B32 win32gl_set_pixel_format(HDC window_dc) {
     // Requested pixel format
     PIXELFORMATDESCRIPTOR px_format_requested = { 0 };
     px_format_requested.nSize = sizeof(PIXELFORMATDESCRIPTOR);
@@ -330,28 +324,61 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     PIXELFORMATDESCRIPTOR px_format_given = { 0 };
     DescribePixelFormat(window_dc, px_format_idx_given, sizeof(PIXELFORMATDESCRIPTOR), &px_format_given);
 
-    if (!SetPixelFormat(window_dc, px_format_idx_given, &px_format_given)) {
-        WIN32_ERROR_DETAILED("Failed to set pixel format for OpenGL context");
-        return -1;
+    B32 success = SetPixelFormat(window_dc, px_format_idx_given, &px_format_given);
+
+    return success;
+}
+
+typedef struct Win32GLInitInfo {
+    B32 success;
+    HWND window_handle;
+    HDC window_dc;
+    HGLRC glrc_handle;
+} Win32GLInitInfo;
+
+static inline Win32GLInitInfo win32gl_init(HINSTANCE hInstance) {
+    Win32GLInitInfo init_info = { 0 };
+
+    // Create window
+    // -------------
+    HWND window_handle = win32gl_create_window(hInstance);
+    if (!window_handle) {
+        WIN32_ERROR_DETAILED("Failed to create window");
+        return init_info;
     }
 
+    // Get window device context
+    // ---------------------
+    HDC window_dc = GetDC(window_handle);
+
+    // Set pixel format
+    // ----------------
+    if (!win32gl_set_pixel_format(window_dc)) {
+        WIN32_ERROR_DETAILED("Failed to set pixel format for OpenGL context");
+        return init_info;
+    }
+
+    // Create OpenGL context
+    // ---------------------
     HGLRC glrc_handle = wglCreateContext(window_dc);
     if (!glrc_handle) {
         WIN32_ERROR_DETAILED("Failed to create OpenGL rendering context");
-        return -1;
+        return init_info;
     }
 
+    // Set OpenGL context to current window
+    // ---------------------
     if (!wglMakeCurrent(window_dc, glrc_handle)) {
         WIN32_ERROR_DETAILED("Failed to set OpenGL rendering context to current window device context");
-        return -1;
+        return init_info;
     }
 
-    if (!ReleaseDC(window_handle, window_dc)) { WIN32_WARN("Failed to release window handle and device context"); }
-
+    // -----------
     ShowWindow(window_handle, SW_SHOWNORMAL);
 
-    // OpenGL Init
-    if (!win32gl_glew_init()) { return false; }
+    // Initialize OpenGL
+    // -----------------
+    if (!win32gl_glew_init()) { return init_info; }
     GL(glEnable(GL_DEPTH_TEST));
     GL(glEnable(GL_BLEND));
     GL(glDepthFunc(GL_LESS));
@@ -361,11 +388,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     //const GLubyte *extensions = glGetStringi(count, GL_EXTENSIONS);
     //const char* term = "WGL_EXT_swap_control";
 
+    // Load OpenGL extensions
+    // ----------------------
     wglSwapIntervalEXT = (FType_wglSwapIntervalEXT *)wglGetProcAddress("wglSwapIntervalEXT");
     if (wglSwapIntervalEXT) {
         wglSwapIntervalEXT(1); // TODO: Verify that VSync is actually used
     }
     else { win32_print_last_error("Win32/wglGetProcAddress(\"wglSwapIntervalEXT\")"); }
+
+    init_info.success = true;
+    init_info.window_handle = window_handle;
+    init_info.window_dc = window_dc;
+    init_info.glrc_handle = glrc_handle;
+    return init_info;
+}
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
+    (void)nShowCmd, (void)lpCmdLine, (void)hPrevInstance;
+    Win32GLInitInfo init_info = win32gl_init(hInstance);
+    if (!init_info.success) { return -1; }
 
     //shader_program_create();
 
@@ -382,13 +423,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             DispatchMessage(&msg);
         }
         if (!g_running) { break; }
-        SwapBuffers(window_dc);
+        SwapBuffers(init_info.window_dc);
         win32gl_clear_background(0.1F, 0.1F, 0.1F, 1);
     }
 
     // Shutdown
     ASSERT(wglMakeCurrent(NULL, NULL));
-    ASSERT(wglDeleteContext(glrc_handle));
+    ASSERT(wglDeleteContext(init_info.glrc_handle));
+    ReleaseDC(init_info.window_handle, init_info.window_dc);
+    DestroyWindow(init_info.window_handle);
 
     return exit_code;
 }
