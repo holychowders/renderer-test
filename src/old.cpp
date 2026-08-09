@@ -31,6 +31,8 @@
      - Multithreading
      - SIMD
      - Profiling
+     - Culling
+     - Lighting (multiple types)
 
    Renderer (to consider or low priority):
      - Static + dynamic linking of renderer for hotloading renderer

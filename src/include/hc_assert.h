@@ -30,6 +30,15 @@
         }                                                                                                                                            \
     } while (0)
 
+// ASSERT_MSG()
+#define ASSERT_MSG(expr, msg)                                                                                                                        \
+    do {                                                                                                                                             \
+        if (!(expr)) {                                                                                                                               \
+            ERROR_RE_DETAILED("ASSERT", (msg));                                                                                                      \
+            DEBUG_BREAK();                                                                                                                           \
+        }                                                                                                                                            \
+    } while (0)
+
 // ASSERT_RAISE() - Raise on the expression without actually evaluating it
 #define ASSERT_RAISE(expr)                                                                                                                           \
     do {                                                                                                                                             \

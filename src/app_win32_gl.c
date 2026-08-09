@@ -7,6 +7,9 @@
 #include <GL/glew.h>
 //#include <GL/gl.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 ////////////////////////////////////////////////////////////////////////// SECTION: FUNCTION POINTERS
 
 typedef BOOL WINAPI FType_wglSwapIntervalEXT(int interval);
@@ -41,19 +44,30 @@ static B32 g_running = true;
 
 ////////////////////////////////////////////////////////////////////////// SECTION: DATA STRUCTURES
 
+////////////////////////////////////////////////////////////////////////// SECTION: PLATFORM-SPECIFIC APP FUNCTION IMPLEMENTATIONS
+
 ////////////////////////////////////////////////////////////////////////// SECTION: GL FUNCTIONS
 
-#define GL_INFO(msg) info_re("Renderer/GL", (msg))
-#define GL_WARN(msg) warn_re("Renderer/GL", (msg))
-#define GL_ERROR(msg) error_re("Renderer/GL", (msg))
-#define GL_ERROR_DETAILED(msg) ERROR_RE_DETAILED("Renderer/GL", (msg))
+#if 0
+    #define GL_INFO(msg) info_re("Renderer/GL", (msg))
+    #define GL_WARN(msg) warn_re("Renderer/GL", (msg))
+    #define GL_ERROR(msg) error_re("Renderer/GL", (msg))
+    #define GL_ERROR_DETAILED(msg) ERROR_RE_DETAILED("Renderer/GL", (msg))
+#endif
 
-#define gl(gl_operation)                                                                                                                             \
-    do {                                                                                                                                             \
-        win32gl_clear_errors();                                                                                                                      \
-        gl_operation;                                                                                                                                \
-        ASSERT(!win32gl_check_errors() && #gl_operation);                                                                                            \
-    } while (0)
+#if 0
+    #define GL(gl_operation)                                                                                                                         \
+        do {                                                                                                                                         \
+            win32gl_clear_errors();                                                                                                                  \
+            gl_operation;                                                                                                                            \
+            ASSERT_MSG(!win32gl_check_errors(), #gl_operation);                                                                                      \
+        } while (0)
+#endif
+
+#define GL(gl_operation)                                                                                                                             \
+    win32gl_clear_errors();                                                                                                                          \
+    gl_operation;                                                                                                                                    \
+    ASSERT_MSG(!win32gl_check_errors(), #gl_operation)
 
 static inline B32 win32gl_check_errors(void) {
     B32 has_error = false;
@@ -75,7 +89,7 @@ static inline B32 win32gl_check_errors(void) {
                 msg = fmsg;
             } break;
         }
-        GL_ERROR(msg);
+        error_re("GL", msg);
     }
     return has_error;
 }
@@ -85,19 +99,133 @@ static inline void win32gl_clear_errors(void) {
 }
 
 static inline void win32gl_clear_background(F32 r, F32 g, F32 b, F32 a) {
-    //gl(glViewport(0, 0, window_width, window_height));
-    gl(glClearColor(r, g, b, a));
-    gl(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
+    //GL(glViewport(0, 0, window_width, window_height));
+    GL(glClearColor(r, g, b, a));
+    GL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
 }
 
 static inline B32 win32gl_glew_init(void) {
     GLenum err = glewInit();
     if (err != GLEW_OK) {
-        error_re("Renderer/GL/GLEW", (const char *)glewGetErrorString(err));
+        error_re("GL/GLEW", (const char *)glewGetErrorString(err));
         return false;
     }
     finfo_re("Renderer/GL/GLEW", "Version %s", (const char *)glewGetString(GLEW_VERSION));
     return true;
+}
+
+////////////////////////////////////////////////////////////////////////// SECTION: OPENGL FUNCTIONS (SHADERS)
+
+static B32 shader_source_verify(GLuint shader, GLenum shader_type) {
+    GLint compile_success = GL_FALSE;
+    GL(glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_success));
+    if (!compile_success) {
+        GLint log_len = { 0 };
+        GL(glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_len));
+
+        char log_message[2048];
+        GL(glGetShaderInfoLog(shader, log_len, &log_len, log_message));
+
+        const char *shader_type_str = "vertex";
+        if (shader_type == GL_VERTEX_SHADER) { shader_type_str = "vertex"; }
+        else if (shader_type == GL_FRAGMENT_SHADER) { shader_type_str = "fragment"; }
+
+        char fmsg[sizeof(log_message) + 128];
+        snprintf(fmsg, sizeof(fmsg), "Failed to compile %s shader\n%s", shader_type_str, log_message);
+        error_re("GL", fmsg);
+        return false;
+    }
+    return true;
+}
+
+static B32 shader_program_bind(GLuint prg) {
+    if (!prg) {
+        error_re("GL", "Failed to bind shader program (null shader program provided)");
+        return false;
+    }
+    GL(glUseProgram(prg));
+    return true;
+}
+
+static void shader_program_unbind() {
+    GL(glUseProgram(0));
+}
+
+static GLint shader_program_get_uniform_location(GLuint shader_program, const char *name) {
+    GL(GLint location = glGetUniformLocation(shader_program, name));
+    if (location == -1) { fwarn(NULL, "Failed to get uniform location: %s", name); }
+    return location;
+}
+
+static B32 shader_program_verify(GLuint prg) {
+    // Check Link Status
+    GLint link_success = GL_FALSE;
+    GL(glGetProgramiv(prg, GL_LINK_STATUS, &link_success));
+    if (!link_success) {
+        char log_message[2048] = { 0 };
+        GL(glGetProgramInfoLog(prg, sizeof(log_message), NULL, log_message));
+        if (log_message[0]) { ferror_re("GL", "Failed to link shader program: %s", log_message); }
+        else { error_re("GL", "Failed to link shader program"); }
+    }
+
+    GLint validate_success = GL_FALSE;
+    if (link_success) {
+        // Check Validation Status
+        GL(glValidateProgram(prg));
+        GL(glGetProgramiv(prg, GL_VALIDATE_STATUS, &validate_success));
+        if (!validate_success) {
+            char log_message[2048] = { 0 };
+            GL(glGetProgramInfoLog(prg, sizeof(log_message), NULL, log_message));
+            if (log_message[0]) { ferror_re("GL", "Failed to validate shader program: %s", log_message); }
+            else { error_re("GL", "Failed to validate shader program"); }
+        }
+    }
+
+    return (validate_success && link_success);
+}
+
+/// Returns created shader program object. Returns 0 on failure.
+static GLuint shader_program_create(const char *vs_src, const char *fs_src) {
+    ASSERT(vs_src);
+    ASSERT(fs_src);
+
+    // Vertex Shader
+    // -------------
+    GL(GLuint vs = glCreateShader(GL_VERTEX_SHADER));
+    GL(glShaderSource(vs, 1, &vs_src, NULL));
+    GL(glCompileShader(vs));
+    B32 vs_ok = shader_source_verify(vs, GL_VERTEX_SHADER);
+
+    // Fragment Shader
+    // ---------------
+    GL(GLuint fs = glCreateShader(GL_FRAGMENT_SHADER));
+    GL(glShaderSource(fs, 1, &fs_src, NULL));
+
+    GL(glCompileShader(fs));
+    B32 fs_ok = shader_source_verify(fs, GL_FRAGMENT_SHADER);
+
+    // Program
+    // -------
+    GLuint prg = 0;
+    if (vs_ok && fs_ok) {
+        GL(prg = glCreateProgram());
+        GL(glAttachShader(prg, vs));
+        GL(glAttachShader(prg, fs));
+        GL(glLinkProgram(prg));
+        B32 prg_ok = shader_program_verify(prg);
+        if (!prg_ok) {
+            error_re("GL", "Failed to create shader program");
+            GL(glDeleteProgram(prg));
+        }
+    }
+
+    // Delete Intermediate Shader Objects
+    GL(glDeleteShader(vs));
+    GL(glDeleteShader(fs));
+    vs = 0;
+    fs = 0;
+
+    return prg;
 }
 
 ////////////////////////////////////////////////////////////////////////// SECTION: WIN32 FUNCTIONS
@@ -163,11 +291,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     RegisterClassExA(&wc);
 
     HWND window_handle = CreateWindowExA(0, // extended style
-                                        wc.lpszClassName, "App", // names
-                                        WS_OVERLAPPEDWINDOW, // style
-                                        CW_USEDEFAULT, CW_USEDEFAULT, // x, y pos
-                                        CW_USEDEFAULT, CW_USEDEFAULT, // width, height
-                                        NULL, NULL, hInstance, NULL // misc
+                                         wc.lpszClassName,
+                                         "App",               // names
+                                         WS_OVERLAPPEDWINDOW, // style
+                                         CW_USEDEFAULT,
+                                         CW_USEDEFAULT, // x, y pos
+                                         CW_USEDEFAULT,
+                                         CW_USEDEFAULT, // width, height
+                                         NULL,
+                                         NULL,
+                                         hInstance,
+                                         NULL // misc
     );
 
     if (!window_handle) {
@@ -218,10 +352,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     // OpenGL Init
     if (!win32gl_glew_init()) { return false; }
-    gl(glEnable(GL_DEPTH_TEST));
-    gl(glEnable(GL_BLEND));
-    gl(glDepthFunc(GL_LESS));
-    gl(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    GL(glEnable(GL_DEPTH_TEST));
+    GL(glEnable(GL_BLEND));
+    GL(glDepthFunc(GL_LESS));
+    GL(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 
     //const GLubyte *extensions = glGetString(GL_EXTENSIONS);
     //const GLubyte *extensions = glGetStringi(count, GL_EXTENSIONS);
@@ -232,6 +366,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         wglSwapIntervalEXT(1); // TODO: Verify that VSync is actually used
     }
     else { win32_print_last_error("Win32/wglGetProcAddress(\"wglSwapIntervalEXT\")"); }
+
+    //shader_program_create();
 
     S32 exit_code = 0;
     while (g_running) {
@@ -248,7 +384,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         if (!g_running) { break; }
         SwapBuffers(window_dc);
         win32gl_clear_background(0.1F, 0.1F, 0.1F, 1);
-        //game_update_and_render();
     }
 
     // Shutdown
@@ -259,38 +394,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 }
 
 #if 0
-
-#endif
-
-#if 1
-    #define STB_IMAGE_IMPLEMENTATION
-    #include <stb_image.h>
-
     #ifdef __clang__
         #define dll_export __declspec(dllexport)
     #elif __GNUC__
         #define dll_export __attribute__((visibility("default"))
     #else
     #endif
+#endif
 
-typedef struct Window Window;
-typedef struct Image Image;
-
-struct Image {
+typedef struct Image {
     U32 width;
     U32 height;
     U32 channels;
     U32 bytes_per_pixel;
     void *pixels;
-};
-
-static inline Image image_load(const char *path);
-static inline void image_free(Image *image);
-
-    #define RENDERER_INFO(msg) info_re("Renderer", (msg))
-    #define RENDERER_WARN(msg) warn_re("Renderer", (msg))
-    #define RENDERER_ERROR(msg) error_re("Renderer", (msg))
-    #define RENDERER_ERROR_DETAILED(msg) ERROR_RE_DETAILED("Renderer", (msg))
+} Image;
 
 static inline Image image_load(const char *path) {
     Image result = { 0 };
@@ -312,4 +430,3 @@ static inline void image_free(Image *image) {
     stbi_image_free(image->pixels);
     *image = (Image){ 0 };
 }
-#endif
