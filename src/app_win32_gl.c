@@ -337,7 +337,7 @@ static inline void win32gl_shutdown(Win32GL_InitInfo init_info) {
     }
 }
 
-static inline GLuint win32gl_prg_create() {
+static inline GLuint win32gl_prg_create(void) {
     char *vs_src = win32_prg_src_load("assets/shaders/vertex.glsl");
     char *fs_src = win32_prg_src_load("assets/shaders/fragment.glsl");
 
@@ -363,8 +363,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     // Sample Vertex and Index Buffers
     // -------------------------------
-    const F32 vertex_buffer[] = { -1.0F, -1.0F, 0.0F, 1.0F, -1.0F, 0.0F, 1.0F, 1.0F, 0.0F };
+    const F32 vertex_buffer[] = {
+        -0.75F, -0.75F, 0.0F, // bottom-left
+        +0.75F, -0.75F, 0.0F, // bottom-right
+        +0.75F, +0.75F, 0.0F  // top-right
+    };
     const U32 index_buffer[] = { 0, 1, 2, 0 };
+    GL_VAOInfo vao_info = gl_vao_create(vertex_buffer, index_buffer, sizeof(vertex_buffer), sizeof(index_buffer));
 
     S32 exit_code = 0;
     while (g_running) {
@@ -380,7 +385,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
         if (!g_running) { break; }
         SwapBuffers(init_info.window_dc);
+
         gl_clear_background(0.1F, 0.1F, 0.1F, 1);
+        gl_vao_draw(vao_info);
     }
 
     win32gl_shutdown(init_info);

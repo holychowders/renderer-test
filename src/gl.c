@@ -52,7 +52,7 @@ B32 gl_glew_init(void) {
 
 ////////////////////////////////////////////////////////////////////////// SECTION: VAO (VERTEX ARRAY OBJECT)
 
-void gl_vao_bind(GL_VAOInfo vao_info) {
+static void gl_vao_bind(GL_VAOInfo vao_info) {
     GL(glBindVertexArray(vao_info.vao));
     GL(glBindBuffer(GL_ARRAY_BUFFER, vao_info.vbo));
     GL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vao_info.ibo));
@@ -70,7 +70,7 @@ void gl_vao_draw(GL_VAOInfo vao_info) {
     //GL(glUniformMatrix4fv(shader.ulocs["u_mvp"], 1, GL_FALSE, &u_mvp[0][0]));
 
     gl_vao_bind(vao_info);
-    GL(glDrawElements(GL_LINES, vao_info.index_count, GL_UNSIGNED_INT, NULL));
+    GL(glDrawElements(GL_TRIANGLES, vao_info.index_count, GL_UNSIGNED_INT, NULL));
 }
 
 /// Create a Vertex Array Object from a vertex and index buffer, which we can then draw

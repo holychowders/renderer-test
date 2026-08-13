@@ -31,7 +31,7 @@ typedef struct GL_VAOInfo {
 } GL_VAOInfo;
 
 GL_VAOInfo gl_vao_create(F32 *vb, U32 *ib, size_t vb_size, size_t ib_size);
-void gl_vao_bind(GL_VAOInfo vao_info);
+static void gl_vao_bind(GL_VAOInfo vao_info);
 void gl_vao_draw(GL_VAOInfo vao_info);
 
 ////////////////////////////////////////////////////////////////////////// SECTION: PRG (SHADERS)
