@@ -22,6 +22,11 @@ static B32 g_running = true;
 
 ////////////////////////////////////////////////////////////////////////// SECTION: MACROS
 
+#define KILOBYTES_TO_BYTES(count) ((count) * (uint64_t)1024)
+#define MEGABYTES_TO_BYTES(count) (KILOBYTES_TO_BYTES(count) * 1024)
+#define GIGABYTES_TO_BYTES(count) (MEGABYTES_TO_BYTES(count) * 1024)
+#define TERABYTES_TO_BYTES(count) (GIGABYTES_TO_BYTES(count) * 1024)
+
 #define WIN32_INFO(msg) info_re("Win32", (msg))
 #define WIN32_WARN(msg) warn_re("Win32", (msg))
 #define WIN32_ERROR(msg) error_re("Win32", (msg))
@@ -45,6 +50,33 @@ static B32 g_running = true;
 ////////////////////////////////////////////////////////////////////////// SECTION: DATA STRUCTURES
 
 ////////////////////////////////////////////////////////////////////////// SECTION: PLATFORM-SPECIFIC APP FUNCTION IMPLEMENTATIONS
+
+////////////////////////////////////////////////////////////////////////// SECTION: MISC FUNCTIONS
+
+static inline size_t str_trim_trailing_newline(char *str, size_t len) {
+    while (len > 0 && (str[len - 1] == '\r' || str[len - 1] == '\n')) {
+        str[--len] = '\0';
+    }
+    return len;
+}
+
+static inline void win32_get_last_error(char **out_msg) {
+    char *msg = { 0 };
+    DWORD code = GetLastError();
+    DWORD len = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                               NULL,
+                               code,
+                               0,
+                               (LPSTR)&msg,
+                               0,
+                               NULL);
+    if (len) {
+        len = (DWORD)str_trim_trailing_newline(msg, len);
+        *out_msg = msg;
+        LocalFree(msg);
+    }
+    else { WIN32_ERROR("Failed to print last Win32 error"); }
+}
 
 ////////////////////////////////////////////////////////////////////////// SECTION: GL FUNCTIONS
 
@@ -116,7 +148,7 @@ static inline B32 win32gl_glew_init(void) {
 
 ////////////////////////////////////////////////////////////////////////// SECTION: OPENGL FUNCTIONS (SHADERS)
 
-static inline B32 shader_source_verify(GLuint shader, GLenum shader_type) {
+static inline B32 win32gl_shader_source_verify(GLuint shader, GLenum shader_type) {
     GLint compile_success = GL_FALSE;
     GL(glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_success));
     if (!compile_success) {
@@ -138,7 +170,7 @@ static inline B32 shader_source_verify(GLuint shader, GLenum shader_type) {
     return true;
 }
 
-static inline B32 shader_program_bind(GLuint prg) {
+static inline B32 win32gl_shader_program_bind(GLuint prg) {
     if (!prg) {
         error_re("GL", "Failed to bind shader program (null shader program provided)");
         return false;
@@ -147,17 +179,17 @@ static inline B32 shader_program_bind(GLuint prg) {
     return true;
 }
 
-static inline void shader_program_unbind(void) {
+static inline void win32gl_shader_program_unbind(void) {
     GL(glUseProgram(0));
 }
 
-static inline GLint shader_program_get_uniform_location(GLuint shader_program, const char *name) {
+static inline GLint win32gl_shader_program_get_uniform_location(GLuint shader_program, const char *name) {
     GL(GLint location = glGetUniformLocation(shader_program, name));
     if (location == -1) { fwarn(NULL, "Failed to get uniform location: %s", name); }
     return location;
 }
 
-static inline B32 shader_program_verify(GLuint prg) {
+static inline B32 win32gl_shader_program_verify(GLuint prg) {
     // Check Link Status
     GLint link_success = GL_FALSE;
     GL(glGetProgramiv(prg, GL_LINK_STATUS, &link_success));
@@ -184,35 +216,95 @@ static inline B32 shader_program_verify(GLuint prg) {
     return (validate_success && link_success);
 }
 
+static inline char *win32gl_shader_source_load(const char *fpath) {
+    char *shader_source = { 0 };
+
+    // Create File Handle
+    // ------------------
+    HANDLE file_handle = CreateFileA(fpath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
+    if (!file_handle) {
+        char *error_message = { 0 };
+        win32_get_last_error(&error_message);
+        ferror_re("Win32", "Failed to create handle to shader source file %s: %s", fpath, error_message);
+    }
+
+    // Get File Size and Initialize Shader Source Buffer
+    // -------------------------------------------------
+    size_t file_size_bytes = { 0 };
+
+    LARGE_INTEGER _file_size_bytes_li = { 0 };
+    BOOL get_size_success = GetFileSizeEx(file_handle, &_file_size_bytes_li);
+    if (get_size_success) { file_size_bytes = (size_t)_file_size_bytes_li.QuadPart; }
+    else {
+        file_size_bytes = KILOBYTES_TO_BYTES(64); // Fallback size, since actual size could not be determined
+        char *error_message = { 0 };
+        win32_get_last_error(&error_message);
+        fwarn_re("Win32", "Failed to get the size of shader source file %s: %s\n      Will use fallback size", fpath, error_message);
+    }
+    shader_source = (char *)malloc(file_size_bytes + 1);
+    if (!shader_source) {
+        // TODO: How to properly handle?
+        ferror_re("Win32", "Failed to allocate %zu bytes for shader source (%s)\n     CONTINUE WITH CAUTION", file_size_bytes + 1, fpath);
+        //DEBUG_BREAK();
+    }
+
+    // Read File and Set Null Terminator at End
+    // ----------------------------------------
+    DWORD bytes_read = { 0 };
+    BOOL read_success = ReadFile(file_handle, shader_source, (DWORD)file_size_bytes, &bytes_read, NULL);
+    if (read_success) {
+        if (!bytes_read) { fwarn_re("Win32", "No bytes were read from shader source file %s. Is the file empty?", fpath); }
+        shader_source[bytes_read] = '\0';
+    }
+    else {
+        char *error_message = { 0 };
+        win32_get_last_error(&error_message);
+        ferror_re("Win32", "Failed to read shader source file %s: %s", fpath, error_message);
+    }
+
+    // Close File
+    // ----------
+    BOOL close_success = CloseHandle(file_handle);
+    if (!close_success) {
+        char *error_message = { 0 };
+        win32_get_last_error(&error_message);
+        ferror_re("Win32", "Failed to close handle to shader source file %s: %s", fpath, error_message);
+    }
+
+    return shader_source;
+}
+
 /// Returns created shader program object. Returns 0 on failure.
-static inline GLuint shader_program_create(const char *vs_src, const char *fs_src) {
-    ASSERT(vs_src);
-    ASSERT(fs_src);
+static inline GLuint win32gl_shader_program_create(const char *vs_src_path, const char *fs_src_path) {
+    // Load Shader Sources from Disk
+    // -----------------------------
+    char *vs_src = win32gl_shader_source_load(vs_src_path);
+    char *fs_src = win32gl_shader_source_load(fs_src_path);
 
-    // Vertex Shader
-    // -------------
+    // Create Vertex Shader
+    // --------------------
     GL(GLuint vs = glCreateShader(GL_VERTEX_SHADER));
-    GL(glShaderSource(vs, 1, &vs_src, NULL));
+    GL(glShaderSource(vs, 1, (const GLchar *const *)&vs_src, NULL));
     GL(glCompileShader(vs));
-    B32 vs_ok = shader_source_verify(vs, GL_VERTEX_SHADER);
+    B32 vs_ok = win32gl_shader_source_verify(vs, GL_VERTEX_SHADER);
 
-    // Fragment Shader
-    // ---------------
+    // Create Fragment Shader
+    // ----------------------
     GL(GLuint fs = glCreateShader(GL_FRAGMENT_SHADER));
-    GL(glShaderSource(fs, 1, &fs_src, NULL));
+    GL(glShaderSource(fs, 1, (const GLchar *const *)&fs_src, NULL));
 
     GL(glCompileShader(fs));
-    B32 fs_ok = shader_source_verify(fs, GL_FRAGMENT_SHADER);
+    B32 fs_ok = win32gl_shader_source_verify(fs, GL_FRAGMENT_SHADER);
 
-    // Program
-    // -------
+    // Create Program
+    // --------------
     GLuint prg = 0;
     if (vs_ok && fs_ok) {
         GL(prg = glCreateProgram());
         GL(glAttachShader(prg, vs));
         GL(glAttachShader(prg, fs));
         GL(glLinkProgram(prg));
-        B32 prg_ok = shader_program_verify(prg);
+        B32 prg_ok = win32gl_shader_program_verify(prg);
         if (!prg_ok) {
             error_re("GL", "Failed to create shader program");
             GL(glDeleteProgram(prg));
@@ -220,22 +312,21 @@ static inline GLuint shader_program_create(const char *vs_src, const char *fs_sr
     }
 
     // Delete Intermediate Shader Objects
+    // ----------------------------------
     GL(glDeleteShader(vs));
     GL(glDeleteShader(fs));
     vs = 0;
     fs = 0;
 
+    // Free Shader Sources
+    // -------------------
+    free(vs_src);
+    free(fs_src);
+
     return prg;
 }
 
 ////////////////////////////////////////////////////////////////////////// SECTION: WIN32 FUNCTIONS
-
-static inline size_t str_trim_trailing_newline(char *str, size_t len) {
-    while (len > 0 && (str[len - 1] == '\r' || str[len - 1] == '\n')) {
-        str[--len] = '\0';
-    }
-    return len;
-}
 
 static inline void win32_print_last_error(const char *re) {
     char *msg = { 0 };
@@ -350,6 +441,10 @@ static inline Win32GLInitInfo win32gl_init(HINSTANCE hInstance) {
     // Get window device context
     // ---------------------
     HDC window_dc = GetDC(window_handle);
+    if (!window_dc) {
+        WIN32_ERROR_DETAILED("Failed to get window device context");
+        return init_info;
+    }
 
     // Set pixel format
     // ----------------
@@ -392,7 +487,7 @@ static inline Win32GLInitInfo win32gl_init(HINSTANCE hInstance) {
     // ----------------------
     wglSwapIntervalEXT = (FType_wglSwapIntervalEXT *)wglGetProcAddress("wglSwapIntervalEXT");
     if (wglSwapIntervalEXT) {
-        wglSwapIntervalEXT(1); // TODO: Verify that VSync is actually used
+        if (!wglSwapIntervalEXT(1)) { warn_re("Win32/GL", "Failed to enable VSync"); }
     }
     else { win32_print_last_error("Win32/wglGetProcAddress(\"wglSwapIntervalEXT\")"); }
 
@@ -403,12 +498,35 @@ static inline Win32GLInitInfo win32gl_init(HINSTANCE hInstance) {
     return init_info;
 }
 
+static inline void win32gl_shutdown(Win32GLInitInfo init_info) {
+    wglMakeCurrent(NULL, NULL);
+    if (init_info.glrc_handle) {
+        if (wglDeleteContext(init_info.glrc_handle)) { init_info.glrc_handle = NULL; }
+        else { warn_re("Win32/GL", "Failed to delete the OpenGL rendering context"); }
+    }
+    if (init_info.window_handle) {
+        if (init_info.window_dc) {
+            if (ReleaseDC(init_info.window_handle, init_info.window_dc)) { init_info.window_dc = NULL; }
+            else { warn_re("Win32", "Failed to release the window device context"); }
+        }
+        if (DestroyWindow(init_info.window_handle)) { init_info.window_handle = NULL; }
+        else { warn_re("Win32", "Failed to destroy window"); }
+    }
+}
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
     (void)nShowCmd, (void)lpCmdLine, (void)hPrevInstance;
     Win32GLInitInfo init_info = win32gl_init(hInstance);
-    if (!init_info.success) { return -1; }
+    if (!init_info.success) {
+        win32gl_shutdown(init_info);
+        return -1;
+    }
 
-    //shader_program_create();
+    // Shaders
+    // -------
+    // TODO: Pass a vector of shader sources?
+    GLuint shader_main_program = win32gl_shader_program_create("assets/shaders/vertex.glsl", "assets/shaders/fragment.glsl");
+    win32gl_shader_program_bind(shader_main_program);
 
     S32 exit_code = 0;
     while (g_running) {
@@ -427,11 +545,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         win32gl_clear_background(0.1F, 0.1F, 0.1F, 1);
     }
 
-    // Shutdown
-    ASSERT(wglMakeCurrent(NULL, NULL));
-    ASSERT(wglDeleteContext(init_info.glrc_handle));
-    ReleaseDC(init_info.window_handle, init_info.window_dc);
-    DestroyWindow(init_info.window_handle);
+    win32gl_shutdown(init_info);
 
     return exit_code;
 }
@@ -453,11 +567,11 @@ typedef struct Image {
     void *pixels;
 } Image;
 
-static inline Image image_load(const char *path) {
+static inline Image image_load(const char *fpath) {
     Image result = { 0 };
 
     S32 width = { 0 }, height = { 0 }, channels = { 0 };
-    stbi_uc *image = stbi_load(path, &width, &height, &channels, 4);
+    stbi_uc *image = stbi_load(fpath, &width, &height, &channels, 4);
 
     result.width = (U32)width;
     result.height = (U32)height;
