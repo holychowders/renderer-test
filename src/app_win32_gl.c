@@ -1,11 +1,6 @@
-#include "hc_log.h"
-#include "hc_assert.h"
-#include "hc_types.h"
+#include "gl.h"
 
 #include <Windows.h>
-
-#include <GL/glew.h>
-//#include <GL/gl.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -90,133 +85,13 @@ static inline void win32_get_last_error(char **out_msg) {
 #if 0
     #define GL(gl_operation)                                                                                                                         \
         do {                                                                                                                                         \
-            win32gl_clear_errors();                                                                                                                  \
+            gl_clear_errors();                                                                                                                       \
             gl_operation;                                                                                                                            \
-            ASSERT_MSG(!win32gl_check_errors(), #gl_operation);                                                                                      \
+            ASSERT_MSG(!gl_check_errors(), #gl_operation);                                                                                           \
         } while (0)
 #endif
 
-#define GL(gl_operation)                                                                                                                             \
-    win32gl_clear_errors();                                                                                                                          \
-    gl_operation;                                                                                                                                    \
-    ASSERT_MSG(!win32gl_check_errors(), #gl_operation)
-
-static inline B32 win32gl_check_errors(void) {
-    B32 has_error = false;
-    GLenum gl_error = { 0 };
-    while ((gl_error = glGetError()) != GL_NO_ERROR) {
-        has_error = true;
-        const char *msg = "";
-        switch (gl_error) {
-            case GL_INVALID_ENUM: msg = "GL_INVALID_ENUM"; break;
-            case GL_INVALID_VALUE: msg = "GL_INVALID_VALUE"; break;
-            case GL_INVALID_OPERATION: msg = "GL_INVALID_OPERATION"; break;
-            case GL_INVALID_FRAMEBUFFER_OPERATION: msg = "GL_INVALID_FRAMEBUFFER_OPERATION"; break;
-            case GL_OUT_OF_MEMORY: msg = "GL_OUT_OF_MEMORY"; break;
-            case GL_STACK_UNDERFLOW: msg = "GL_STACK_UNDERFLOW"; break;
-            case GL_STACK_OVERFLOW: msg = "GL_STACK_OVERFLOW"; break;
-            default: {
-                char fmsg[128];
-                snprintf(fmsg, sizeof(fmsg), "Unknown error: 0x%x", gl_error);
-                msg = fmsg;
-            } break;
-        }
-        error_re("GL", msg);
-    }
-    return has_error;
-}
-
-static inline void win32gl_clear_errors(void) {
-    while (glGetError() != GL_NO_ERROR) {}
-}
-
-static inline void win32gl_clear_background(F32 r, F32 g, F32 b, F32 a) {
-    //GL(glViewport(0, 0, window_width, window_height));
-    GL(glClearColor(r, g, b, a));
-    GL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
-}
-
-static inline B32 win32gl_glew_init(void) {
-    GLenum err = glewInit();
-    if (err != GLEW_OK) {
-        error_re("GL/GLEW", (const char *)glewGetErrorString(err));
-        return false;
-    }
-    finfo_re("Renderer/GL/GLEW", "Version %s", (const char *)glewGetString(GLEW_VERSION));
-    return true;
-}
-
-////////////////////////////////////////////////////////////////////////// SECTION: OPENGL FUNCTIONS (SHADERS)
-
-static inline B32 win32gl_shader_source_verify(GLuint shader, GLenum shader_type) {
-    GLint compile_success = GL_FALSE;
-    GL(glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_success));
-    if (!compile_success) {
-        GLint log_len = { 0 };
-        GL(glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &log_len));
-
-        char log_message[2048];
-        GL(glGetShaderInfoLog(shader, log_len, &log_len, log_message));
-
-        const char *shader_type_str = "vertex";
-        if (shader_type == GL_VERTEX_SHADER) { shader_type_str = "vertex"; }
-        else if (shader_type == GL_FRAGMENT_SHADER) { shader_type_str = "fragment"; }
-
-        char fmsg[sizeof(log_message) + 128];
-        snprintf(fmsg, sizeof(fmsg), "Failed to compile %s shader\n%s", shader_type_str, log_message);
-        error_re("GL", fmsg);
-        return false;
-    }
-    return true;
-}
-
-static inline B32 win32gl_shader_program_bind(GLuint prg) {
-    if (!prg) {
-        error_re("GL", "Failed to bind shader program (null shader program provided)");
-        return false;
-    }
-    GL(glUseProgram(prg));
-    return true;
-}
-
-static inline void win32gl_shader_program_unbind(void) {
-    GL(glUseProgram(0));
-}
-
-static inline GLint win32gl_shader_program_get_uniform_location(GLuint shader_program, const char *name) {
-    GL(GLint location = glGetUniformLocation(shader_program, name));
-    if (location == -1) { fwarn(NULL, "Failed to get uniform location: %s", name); }
-    return location;
-}
-
-static inline B32 win32gl_shader_program_verify(GLuint prg) {
-    // Check Link Status
-    GLint link_success = GL_FALSE;
-    GL(glGetProgramiv(prg, GL_LINK_STATUS, &link_success));
-    if (!link_success) {
-        char log_message[2048] = { 0 };
-        GL(glGetProgramInfoLog(prg, sizeof(log_message), NULL, log_message));
-        if (log_message[0]) { ferror_re("GL", "Failed to link shader program: %s", log_message); }
-        else { error_re("GL", "Failed to link shader program"); }
-    }
-
-    GLint validate_success = GL_FALSE;
-    if (link_success) {
-        // Check Validation Status
-        GL(glValidateProgram(prg));
-        GL(glGetProgramiv(prg, GL_VALIDATE_STATUS, &validate_success));
-        if (!validate_success) {
-            char log_message[2048] = { 0 };
-            GL(glGetProgramInfoLog(prg, sizeof(log_message), NULL, log_message));
-            if (log_message[0]) { ferror_re("GL", "Failed to validate shader program: %s", log_message); }
-            else { error_re("GL", "Failed to validate shader program"); }
-        }
-    }
-
-    return (validate_success && link_success);
-}
-
-static inline char *win32gl_shader_source_load(const char *fpath) {
+static inline char *win32_prg_src_load(const char *fpath) {
     char *shader_source = { 0 };
 
     // Create File Handle
@@ -274,58 +149,6 @@ static inline char *win32gl_shader_source_load(const char *fpath) {
     return shader_source;
 }
 
-/// Returns created shader program object. Returns 0 on failure.
-static inline GLuint win32gl_shader_program_create(const char *vs_src_path, const char *fs_src_path) {
-    // Load Shader Sources from Disk
-    // -----------------------------
-    char *vs_src = win32gl_shader_source_load(vs_src_path);
-    char *fs_src = win32gl_shader_source_load(fs_src_path);
-
-    // Create Vertex Shader
-    // --------------------
-    GL(GLuint vs = glCreateShader(GL_VERTEX_SHADER));
-    GL(glShaderSource(vs, 1, (const GLchar *const *)&vs_src, NULL));
-    GL(glCompileShader(vs));
-    B32 vs_ok = win32gl_shader_source_verify(vs, GL_VERTEX_SHADER);
-
-    // Create Fragment Shader
-    // ----------------------
-    GL(GLuint fs = glCreateShader(GL_FRAGMENT_SHADER));
-    GL(glShaderSource(fs, 1, (const GLchar *const *)&fs_src, NULL));
-
-    GL(glCompileShader(fs));
-    B32 fs_ok = win32gl_shader_source_verify(fs, GL_FRAGMENT_SHADER);
-
-    // Create Program
-    // --------------
-    GLuint prg = 0;
-    if (vs_ok && fs_ok) {
-        GL(prg = glCreateProgram());
-        GL(glAttachShader(prg, vs));
-        GL(glAttachShader(prg, fs));
-        GL(glLinkProgram(prg));
-        B32 prg_ok = win32gl_shader_program_verify(prg);
-        if (!prg_ok) {
-            error_re("GL", "Failed to create shader program");
-            GL(glDeleteProgram(prg));
-        }
-    }
-
-    // Delete Intermediate Shader Objects
-    // ----------------------------------
-    GL(glDeleteShader(vs));
-    GL(glDeleteShader(fs));
-    vs = 0;
-    fs = 0;
-
-    // Free Shader Sources
-    // -------------------
-    free(vs_src);
-    free(fs_src);
-
-    return prg;
-}
-
 ////////////////////////////////////////////////////////////////////////// SECTION: WIN32 FUNCTIONS
 
 static inline void win32_print_last_error(const char *re) {
@@ -370,7 +193,7 @@ static inline LRESULT CALLBACK win32_window_proc(HWND hWnd, UINT uMsg, WPARAM wP
     return result;
 }
 
-static inline HWND win32gl_create_window(HINSTANCE hInstance) {
+static inline HWND win32_create_window(HINSTANCE hInstance) {
     WNDCLASSEXA wc = { 0 };
     wc.cbSize = sizeof(WNDCLASSEX);
     wc.style = CS_OWNDC;
@@ -420,19 +243,19 @@ static inline B32 win32gl_set_pixel_format(HDC window_dc) {
     return success;
 }
 
-typedef struct Win32GLInitInfo {
+typedef struct Win32GL_InitInfo {
     B32 success;
     HWND window_handle;
     HDC window_dc;
     HGLRC glrc_handle;
-} Win32GLInitInfo;
+} Win32GL_InitInfo;
 
-static inline Win32GLInitInfo win32gl_init(HINSTANCE hInstance) {
-    Win32GLInitInfo init_info = { 0 };
+static inline Win32GL_InitInfo win32gl_init(HINSTANCE hInstance) {
+    Win32GL_InitInfo init_info = { 0 };
 
     // Create window
     // -------------
-    HWND window_handle = win32gl_create_window(hInstance);
+    HWND window_handle = win32_create_window(hInstance);
     if (!window_handle) {
         WIN32_ERROR_DETAILED("Failed to create window");
         return init_info;
@@ -473,7 +296,7 @@ static inline Win32GLInitInfo win32gl_init(HINSTANCE hInstance) {
 
     // Initialize OpenGL
     // -----------------
-    if (!win32gl_glew_init()) { return init_info; }
+    if (!gl_glew_init()) { return init_info; }
     GL(glEnable(GL_DEPTH_TEST));
     GL(glEnable(GL_BLEND));
     GL(glDepthFunc(GL_LESS));
@@ -498,7 +321,7 @@ static inline Win32GLInitInfo win32gl_init(HINSTANCE hInstance) {
     return init_info;
 }
 
-static inline void win32gl_shutdown(Win32GLInitInfo init_info) {
+static inline void win32gl_shutdown(Win32GL_InitInfo init_info) {
     wglMakeCurrent(NULL, NULL);
     if (init_info.glrc_handle) {
         if (wglDeleteContext(init_info.glrc_handle)) { init_info.glrc_handle = NULL; }
@@ -514,9 +337,21 @@ static inline void win32gl_shutdown(Win32GLInitInfo init_info) {
     }
 }
 
+static inline GLuint win32gl_prg_create() {
+    char *vs_src = win32_prg_src_load("assets/shaders/vertex.glsl");
+    char *fs_src = win32_prg_src_load("assets/shaders/fragment.glsl");
+
+    // TODO: Pass a vector of shader sources?
+    GLuint shader_main_program = gl_prg_create(vs_src, fs_src);
+    gl_prg_bind(shader_main_program);
+
+    free(vs_src);
+    free(fs_src);
+}
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
     (void)nShowCmd, (void)lpCmdLine, (void)hPrevInstance;
-    Win32GLInitInfo init_info = win32gl_init(hInstance);
+    Win32GL_InitInfo init_info = win32gl_init(hInstance);
     if (!init_info.success) {
         win32gl_shutdown(init_info);
         return -1;
@@ -524,9 +359,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     // Shaders
     // -------
-    // TODO: Pass a vector of shader sources?
-    GLuint shader_main_program = win32gl_shader_program_create("assets/shaders/vertex.glsl", "assets/shaders/fragment.glsl");
-    win32gl_shader_program_bind(shader_main_program);
+    GLuint shader_program = win32gl_prg_create();
+
+    // Sample Vertex and Index Buffers
+    // -------------------------------
+    const F32 vertex_buffer[] = { -1.0F, -1.0F, 0.0F, 1.0F, -1.0F, 0.0F, 1.0F, 1.0F, 0.0F };
+    const U32 index_buffer[] = { 0, 1, 2, 0 };
 
     S32 exit_code = 0;
     while (g_running) {
@@ -542,7 +380,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
         if (!g_running) { break; }
         SwapBuffers(init_info.window_dc);
-        win32gl_clear_background(0.1F, 0.1F, 0.1F, 1);
+        gl_clear_background(0.1F, 0.1F, 0.1F, 1);
     }
 
     win32gl_shutdown(init_info);

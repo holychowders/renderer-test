@@ -8,7 +8,7 @@ set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # EXECUTABLES
-add_executable(renderer-test WIN32 src/app_win32_gl.c)
+add_executable(renderer-test WIN32 src/app_win32_gl.c src/gl.c)
 
 # SOURCE LIBRARIES
 add_library(glew STATIC vendor/glew-2.3.1-src-release/src/glew.c)
