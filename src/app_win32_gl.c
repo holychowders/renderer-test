@@ -2,8 +2,7 @@
 
 #include <Windows.h>
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+#include <malloc.h>
 
 ////////////////////////////////////////////////////////////////////////// SECTION: FUNCTION POINTERS
 
@@ -340,13 +339,10 @@ static inline void win32gl_shutdown(Win32GL_InitInfo init_info) {
 static inline GLuint win32gl_prg_create(void) {
     char *vs_src = win32_prg_src_load("assets/shaders/vertex.glsl");
     char *fs_src = win32_prg_src_load("assets/shaders/fragment.glsl");
-
-    // TODO: Pass a vector of shader sources?
-    GLuint shader_main_program = gl_prg_create(vs_src, fs_src);
-    gl_prg_bind(shader_main_program);
-
+    GLuint prg = gl_prg_create(vs_src, fs_src); // TODO: Pass a vector of shader sources?
     free(vs_src);
     free(fs_src);
+    return prg;
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
@@ -357,19 +353,33 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return -1;
     }
 
-    // Shaders
-    // -------
-    GLuint shader_program = win32gl_prg_create();
-
     // Sample Vertex and Index Buffers
     // -------------------------------
     const F32 vertex_buffer[] = {
-        -0.75F, -0.75F, 0.0F, // bottom-left
-        +0.75F, -0.75F, 0.0F, // bottom-right
-        +0.75F, +0.75F, 0.0F  // top-right
+        /*pos*/ -0.5F, -0.5F, 0.0F, /*tex*/ 0.0, 0.0, // 0 bottom-left
+        /*pos*/ +0.5F, -0.5F, 0.0F, /*tex*/ 1.0, 0.0, // 1 bottom-right
+        /*pos*/ +0.5F, +0.5F, 0.0F, /*tex*/ 1.0, 1.0, // 2 top-right
+        /*pos*/ -0.5F, +0.5F, 0.0F, /*tex*/ 0.0, 1.0, // 3 top-left
     };
-    const U32 index_buffer[] = { 0, 1, 2, 0 };
+    const U32 index_buffer[] = { 0, 1, 2, 0, 2, 3 };
     GL_VAOInfo vao_info = gl_vao_create(vertex_buffer, index_buffer, sizeof(vertex_buffer), sizeof(index_buffer));
+
+    // Textures
+    // --------
+    GLuint texture = gl_texture_from_image("assets/images/Faces for a Dying Land/creep12.png");
+    GL(glBindTextureUnit(0, texture));
+
+    // Shaders
+    // -------
+    GLuint shader_program = win32gl_prg_create();
+    gl_prg_bind(shader_program);
+
+    // Shader Uniforms
+    // ---------------
+    F32 u_color[] = { 1.0F, 0.25F, 0.25F, 1.0F };
+
+    GLuint u_texunit1_loc = gl_prg_get_uloc(shader_program, "u_texunit");
+    GL(glUniform1i(u_texunit1_loc, 0));
 
     S32 exit_code = 0;
     while (g_running) {
@@ -384,11 +394,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             DispatchMessage(&msg);
         }
         if (!g_running) { break; }
-        SwapBuffers(init_info.window_dc);
 
         gl_clear_background(0.1F, 0.1F, 0.1F, 1);
-        gl_vao_draw(vao_info);
+        gl_vao_draw(vao_info, shader_program, u_color);
+
+        SwapBuffers(init_info.window_dc);
     }
+
+    gl_vao_delete(&vao_info);
 
     win32gl_shutdown(init_info);
 
@@ -404,6 +417,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     #endif
 #endif
 
+#if 0
 typedef struct Image {
     U32 width;
     U32 height;
@@ -432,3 +446,4 @@ static inline void image_free(Image *image) {
     stbi_image_free(image->pixels);
     *image = (Image){ 0 };
 }
+#endif

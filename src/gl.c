@@ -3,6 +3,9 @@
 #include <GL/glew.h>
 //#include <GL/gl.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 ////////////////////////////////////////////////////////////////////////// SECTION: MISC
 
 B32 gl_check_errors(void) {
@@ -52,27 +55,6 @@ B32 gl_glew_init(void) {
 
 ////////////////////////////////////////////////////////////////////////// SECTION: VAO (VERTEX ARRAY OBJECT)
 
-static void gl_vao_bind(GL_VAOInfo vao_info) {
-    GL(glBindVertexArray(vao_info.vao));
-    GL(glBindBuffer(GL_ARRAY_BUFFER, vao_info.vbo));
-    GL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vao_info.ibo));
-}
-
-void gl_vao_draw(GL_VAOInfo vao_info) {
-    //if (!shader_bind(shader.prg)) { return; }
-
-    // FIXME: use the appropriate texture unit for each mesh
-    //if (shader.ulocs.contains("u_texunit")) {
-    //    GL(glUniform1i(shader.ulocs["u_texunit"], TEXTURE_UNIT_CAT_BASE_COLOR));
-    //}
-
-    //glm::mat4 u_mvp = calculate_mvp(transform, fctx.view_matrix, fctx.proj_matrix);
-    //GL(glUniformMatrix4fv(shader.ulocs["u_mvp"], 1, GL_FALSE, &u_mvp[0][0]));
-
-    gl_vao_bind(vao_info);
-    GL(glDrawElements(GL_TRIANGLES, vao_info.index_count, GL_UNSIGNED_INT, NULL));
-}
-
 /// Create a Vertex Array Object from a vertex and index buffer, which we can then draw
 GL_VAOInfo gl_vao_create(F32 *vb, U32 *ib, size_t vb_size, size_t ib_size) {
     // Create VAO
@@ -90,8 +72,12 @@ GL_VAOInfo gl_vao_create(F32 *vb, U32 *ib, size_t vb_size, size_t ib_size) {
 
     // Define Vertex Attributes
     // ------------------------
-    GL(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void *)0)); // NOLINT(modernize-use-nullptr)
+    // Position XYZ
+    GL(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (void *)0)); // NOLINT(modernize-use-nullptr)
+    // Texcoord UV
+    GL(glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (void *)(3 * sizeof(GLfloat)))); // NOLINT(modernize-use-nullptr)
     GL(glEnableVertexAttribArray(0));
+    GL(glEnableVertexAttribArray(1));
 
     // Create IBO
     // ----------
@@ -109,9 +95,44 @@ GL_VAOInfo gl_vao_create(F32 *vb, U32 *ib, size_t vb_size, size_t ib_size) {
     return vao_info;
 }
 
+void gl_vao_delete(GL_VAOInfo *vao_info) {
+    if (!vao_info) {
+        warn_re("GL", "Failed to delete VAO (null VAO info provided)");
+        return;
+    }
+    GL(glDeleteVertexArrays(1, &vao_info->vao));
+    GL(glDeleteBuffers(1, &vao_info->vbo));
+    GL(glDeleteBuffers(1, &vao_info->ibo));
+    *vao_info = (GL_VAOInfo){ 0 };
+}
+
+static void gl_vao_bind(GL_VAOInfo vao_info) {
+    GL(glBindVertexArray(vao_info.vao));
+    GL(glBindBuffer(GL_ARRAY_BUFFER, vao_info.vbo));
+    GL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vao_info.ibo));
+}
+
+void gl_vao_draw(GL_VAOInfo vao_info, GLuint prg, F32 *u_color) {
+    //if (!shader_bind(shader.prg)) { return; }
+
+    // FIXME: use the appropriate texture unit for each mesh
+    //if (shader.ulocs.contains("u_texunit")) {
+    //    GL(glUniform1i(shader.ulocs["u_texunit"], TEXTURE_UNIT_CAT_BASE_COLOR));
+    //}
+
+    //glm::mat4 u_mvp = calculate_mvp(transform, fctx.view_matrix, fctx.proj_matrix);
+    //GL(glUniformMatrix4fv(shader.ulocs["u_mvp"], 1, GL_FALSE, &u_mvp[0][0]));
+
+    // This should be cached
+    //GL(glUniform4f(gl_prg_get_uloc(prg, "u_color"), u_color[0], u_color[1], u_color[2], u_color[3]));
+
+    gl_vao_bind(vao_info);
+    GL(glDrawElements(GL_TRIANGLES, vao_info.index_count, GL_UNSIGNED_INT, NULL));
+}
+
 ////////////////////////////////////////////////////////////////////////// SECTION: PRG (SHADERS)
 
-/// Returns created shader program object. Returns 0 on failure.
+/// Return created shader program object. Return 0 on failure.
 GLuint gl_prg_create(const char *vs_src, const char *fs_src) {
     // Create Vertex Shader
     // --------------------
@@ -153,6 +174,42 @@ GLuint gl_prg_create(const char *vs_src, const char *fs_src) {
     return prg;
 }
 
+void gl_prg_delete(GLuint *prg) {
+    if (!prg) {
+        warn_re("GL", "Failed to delete shader program (null shader program provided)");
+        return;
+    }
+    GL(glDeleteProgram(*prg));
+    *prg = 0;
+}
+
+B32 gl_prg_verify(GLuint prg) {
+    // Check Link Status
+    GLint link_success = GL_FALSE;
+    GL(glGetProgramiv(prg, GL_LINK_STATUS, &link_success));
+    if (!link_success) {
+        char log_message[2048] = { 0 };
+        GL(glGetProgramInfoLog(prg, sizeof(log_message), NULL, log_message));
+        if (log_message[0]) { ferror_re("GL", "Failed to link shader program: %s", log_message); }
+        else { error_re("GL", "Failed to link shader program"); }
+    }
+
+    GLint validate_success = GL_FALSE;
+    if (link_success) {
+        // Check Validation Status
+        GL(glValidateProgram(prg));
+        GL(glGetProgramiv(prg, GL_VALIDATE_STATUS, &validate_success));
+        if (!validate_success) {
+            char log_message[2048] = { 0 };
+            GL(glGetProgramInfoLog(prg, sizeof(log_message), NULL, log_message));
+            if (log_message[0]) { ferror_re("GL", "Failed to validate shader program: %s", log_message); }
+            else { error_re("GL", "Failed to validate shader program"); }
+        }
+    }
+
+    return (validate_success && link_success);
+}
+
 B32 gl_prg_src_verify(GLuint shader, GLenum shader_type) {
     GLint compile_success = GL_FALSE;
     GL(glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_success));
@@ -188,35 +245,51 @@ void gl_prg_unbind(void) {
     GL(glUseProgram(0));
 }
 
-GLint gl_prg_get_uniform_location(GLuint shader_program, const char *name) {
+GLint gl_prg_get_uloc(GLuint shader_program, const char *name) {
     GL(GLint location = glGetUniformLocation(shader_program, name));
-    if (location == -1) { fwarn(NULL, "Failed to get uniform location: %s", name); }
+    if (location == -1) { fwarn_re("GL", "Failed to get uniform location: %s", name); }
     return location;
 }
 
-B32 gl_prg_verify(GLuint prg) {
-    // Check Link Status
-    GLint link_success = GL_FALSE;
-    GL(glGetProgramiv(prg, GL_LINK_STATUS, &link_success));
-    if (!link_success) {
-        char log_message[2048] = { 0 };
-        GL(glGetProgramInfoLog(prg, sizeof(log_message), NULL, log_message));
-        if (log_message[0]) { ferror_re("GL", "Failed to link shader program: %s", log_message); }
-        else { error_re("GL", "Failed to link shader program"); }
+////////////////////////////////////////////////////////////////////////// SECTION: TEXTURES
+
+/// Return created texture object. Return 0 on failure.
+GLuint gl_texture_from_image(const char *fpath) {
+    // Load Image from Disk
+    // --------------------
+    stbi_set_flip_vertically_on_load(true);
+    int width = { 0 }, height = { 0 }, channels = { 0 };
+    unsigned char *image_data = stbi_load(fpath, &width, &height, &channels, 4);
+    if (!image_data) {
+        error_re("stbi_load", stbi_failure_reason());
+        return 0;
     }
 
-    GLint validate_success = GL_FALSE;
-    if (link_success) {
-        // Check Validation Status
-        GL(glValidateProgram(prg));
-        GL(glGetProgramiv(prg, GL_VALIDATE_STATUS, &validate_success));
-        if (!validate_success) {
-            char log_message[2048] = { 0 };
-            GL(glGetProgramInfoLog(prg, sizeof(log_message), NULL, log_message));
-            if (log_message[0]) { ferror_re("GL", "Failed to validate shader program: %s", log_message); }
-            else { error_re("GL", "Failed to validate shader program"); }
-        }
-    }
+    // Create Texture
+    // --------------
+    GLuint texture = { 0 };
+    GL(glCreateTextures(GL_TEXTURE_2D, 1, &texture));
 
-    return (validate_success && link_success);
+    // Define Texture Parameters
+    // -------------------------
+    GL(glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+    GL(glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+    GL(glTextureParameteri(texture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+    GL(glTextureParameteri(texture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+
+    // Allocate and Upload Image Data to Texture Object
+    // ------------------------------------------------
+    GL(glTextureStorage2D(texture, 1, GL_RGBA8, width, height));
+    GL(glTextureSubImage2D(texture, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, image_data));
+
+    GL(glGenerateTextureMipmap(texture));
+
+    stbi_image_free(image_data);
+
+    return texture;
+}
+
+GLuint gl_texture_delete(GLuint *texture) {
+    GL(glDeleteTextures(1, texture));
+    *texture = 0;
 }

@@ -31,14 +31,20 @@ typedef struct GL_VAOInfo {
 } GL_VAOInfo;
 
 GL_VAOInfo gl_vao_create(F32 *vb, U32 *ib, size_t vb_size, size_t ib_size);
+void gl_vao_delete(GL_VAOInfo *vao_info);
 static void gl_vao_bind(GL_VAOInfo vao_info);
-void gl_vao_draw(GL_VAOInfo vao_info);
+void gl_vao_draw(GL_VAOInfo vao_info, GLuint prg, F32 *u_color);
 
 ////////////////////////////////////////////////////////////////////////// SECTION: PRG (SHADERS)
 
 GLuint gl_prg_create(const char *vs_src, const char *fs_src);
+void gl_prg_delete(GLuint *prg);
 B32 gl_prg_src_verify(GLuint shader, GLenum shader_type);
 B32 gl_prg_bind(GLuint prg);
 void gl_prg_unbind(void);
-GLint gl_prg_get_uniform_location(GLuint shader_program, const char *name);
+GLint gl_prg_get_uloc(GLuint shader_program, const char *name);
 B32 gl_prg_verify(GLuint prg);
+
+////////////////////////////////////////////////////////////////////////// SECTION: TEXTURES
+
+GLuint gl_texture_from_image(const char *fpath);

@@ -7,6 +7,7 @@
 ////////////////////////////////////////////////////////////////////////// SECTION(PUBLIC): MACROS
 
 #define ERROR_RE_DETAILED(re, msg) ferror_re((re), "%s in %s() on line %d of %s (%s)", (msg), __FUNCTION__, __LINE__, __FILE_NAME__, __FILE__)
+#define ERROR_DETAILED(msg) ferror("%s in %s() on line %d of %s (%s)", (msg), __FUNCTION__, __LINE__, __FILE_NAME__, __FILE__)
 
 ////////////////////////////////////////////////////////////////////////// SECTION(PUBLIC): DECLARATIONS
 
