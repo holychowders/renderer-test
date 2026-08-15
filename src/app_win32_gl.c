@@ -1,4 +1,5 @@
 #include "gl.h"
+#include "hc_mat.h"
 
 #include <Windows.h>
 
@@ -201,19 +202,15 @@ static inline HWND win32_create_window(HINSTANCE hInstance) {
     wc.lpszClassName = "App-Class";
     RegisterClassExA(&wc);
 
+    // clang-format off
     HWND window_handle = CreateWindowExA(0, // extended style
-                                         wc.lpszClassName,
-                                         "App",               // names
+                                         wc.lpszClassName, "App", // names
                                          WS_OVERLAPPEDWINDOW, // style
-                                         CW_USEDEFAULT,
-                                         CW_USEDEFAULT, // x, y pos
-                                         CW_USEDEFAULT,
-                                         CW_USEDEFAULT, // width, height
-                                         NULL,
-                                         NULL,
-                                         hInstance,
-                                         NULL // misc
-    );
+                                         CW_USEDEFAULT, CW_USEDEFAULT, // x, y pos
+                                         //CW_USEDEFAULT, CW_USEDEFAULT, // width, height
+                                         720, 720, // width, height
+                                         NULL, NULL, hInstance, NULL // misc
+    ); // clang-format on
 
     return window_handle;
 }
@@ -345,6 +342,59 @@ static inline GLuint win32gl_prg_create(void) {
     return prg;
 }
 
+//static Mat4x4F32 calculate_mvp(const Transform &transform, const Mat4x4F32 &view, const Mat4x4F32 &projection) {
+//    Mat4x4F32 model = Mat4x4F32(1.0F);
+//    model = glm::translate(model, transform.pos);
+//
+//    model = glm::rotate(model, transform.ori.x, glm::vec3(1.0F, 0.F, 0.0F));
+//    model = glm::rotate(model, transform.ori.y, glm::vec3(0.0F, 1.F, 0.0F));
+//    model = glm::rotate(model, transform.ori.z, glm::vec3(0.0F, 0.F, 1.0F));
+//
+//    model = glm::scale(model, transform.scale);
+//
+//    return projection * view * model;
+//}
+
+typedef struct Transform {
+    Vec3F32 pos;
+    Vec3F32 scale;
+    Vec3F32 ori;
+    Vec3F32 angvel;
+} Transform;
+
+static inline Mat4x4F32 calculate_mvp(const Transform transform, const Mat4x4F32 view, const Mat4x4F32 projection) {
+}
+
+static inline void test(void) {
+    // Original matrix
+    // [ 1 2 ]
+    // [ 3 4 ]
+    Mat2x2F32 mat1 = { 1, 2, 3, 4 }; // store it internally as either row or column major, but init is the same
+
+    // Multiply by identity matrix and verify
+    Mat2x2F32 mati = { 1, 0, 0, 1 }; // this is a constant, should be able to create a new matrix using the identity (eg, something like `matrix = MAT4I` constant)
+    Mat2x2F32 res1 = mat2x2f32_mul(mat1, mati);
+    //                row1  row2
+    //ASSERT(res1.e == {1, 2, 3, 4});
+    ASSERT(res1.e[0][0] == 1.0F);
+    ASSERT(res1.e[0][1] == 2.0F);
+    ASSERT(res1.e[1][0] == 3.0F);
+    ASSERT(res1.e[1][1] == 4.0F);
+    //ASSERT(res1.e == mat1.e);
+
+    // Multiply by another matrix and verify
+    // [ 5 6 ]
+    // [ 7 8 ]
+    Mat2x2F32 mat2 = { 5, 6, 7, 8 };
+    Mat2x2F32 res2 = mat2x2f32_mul(mat1, mat2);
+    //ASSERT(res2.e == {19, 22, 43, 50});
+    ASSERT(res2.e[0][0] == 19.0F);
+    ASSERT(res2.e[0][1] == 22.0F);
+    ASSERT(res2.e[1][0] == 43.0F);
+    ASSERT(res2.e[1][1] == 50.0F);
+}
+
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
     (void)nShowCmd, (void)lpCmdLine, (void)hPrevInstance;
     Win32GL_InitInfo init_info = win32gl_init(hInstance);
@@ -353,16 +403,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return -1;
     }
 
-    // Sample Vertex and Index Buffers
-    // -------------------------------
+    test();
+
+    // Sample Geometry and Transform
+    // -----------------------------
     const F32 vertex_buffer[] = {
-        /*pos*/ -0.5F, -0.5F, 0.0F, /*tex*/ 0.0, 0.0, // 0 bottom-left
-        /*pos*/ +0.5F, -0.5F, 0.0F, /*tex*/ 1.0, 0.0, // 1 bottom-right
-        /*pos*/ +0.5F, +0.5F, 0.0F, /*tex*/ 1.0, 1.0, // 2 top-right
-        /*pos*/ -0.5F, +0.5F, 0.0F, /*tex*/ 0.0, 1.0, // 3 top-left
+        /*pos*/ -0.5F, -0.5F, 0.0F, /*tex*/ 0.0F, 0.0F, // 0 bottom-left
+        /*pos*/ +0.5F, -0.5F, 0.0F, /*tex*/ 1.0F, 0.0F, // 1 bottom-right
+        /*pos*/ +0.5F, +0.5F, 0.0F, /*tex*/ 1.0F, 1.0F, // 2 top-right
+        /*pos*/ -0.5F, +0.5F, 0.0F, /*tex*/ 0.0F, 1.0F, // 3 top-left
     };
     const U32 index_buffer[] = { 0, 1, 2, 0, 2, 3 };
     GL_VAOInfo vao_info = gl_vao_create(vertex_buffer, index_buffer, sizeof(vertex_buffer), sizeof(index_buffer));
+
+    //Mat4x4F32 model_transform = {};
+
 
     // Textures
     // --------
@@ -374,12 +429,22 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     GLuint shader_program = win32gl_prg_create();
     gl_prg_bind(shader_program);
 
+    // Shared Transforms
+    // -----------------
+
     // Shader Uniforms
     // ---------------
+    // u_color
     F32 u_color[] = { 1.0F, 0.25F, 0.25F, 1.0F };
 
-    GLuint u_texunit1_loc = gl_prg_get_uloc(shader_program, "u_texunit");
+    // u_texunit
+    GLint u_texunit1_loc = gl_prg_get_uloc(shader_program, "u_texunit1");
     GL(glUniform1i(u_texunit1_loc, 0));
+
+    // u_mvp
+    //Mat4x4F32 u_mvp = calculate_mvp(transform, view_matrix, proj_matrix);
+    GLint u_mvp_loc = gl_prg_get_uloc(shader_program, "u_mvp");
+    //GL(glUniformMatrix4fv(u_mvp_loc, 1, GL_FALSE, &u_mvp[0][0]));
 
     S32 exit_code = 0;
     while (g_running) {
