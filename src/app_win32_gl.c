@@ -367,34 +367,31 @@ typedef struct Transform {
 static inline Mat4F32 calculate_mvp(const Transform transform, const Mat4F32 view, const Mat4F32 projection) {
     Mat4F32 model = mat4f32_identity();
     model = mat4f32_trans(model, transform.pos);
-    model = mat4f32_rot(model, transform.ori);
+    model = mat4f32_rot_xyz(model, transform.ori);
     model = mat4f32_scale(model, transform.scale);
-    return model * view * projection;
+    return mat4f32_mul(mat4f32_mul(model, view), projection);
 }
 
-static inline void test(void) {
+static inline void test_mat(void) {
     // Original Matrix
     // ---------------
     // [ 1 2 ]
     // [ 3 4 ]
-    Mat2F32 mat1 = { 1, 2, 3, 4 }; // store it internally as either row or column major, but init is the same
+    Mat2F32 mat1 = { .e = { 1, 2, 3, 4 } }; // store it internally as either row or column major, but init is the same
 
     // Multiply by Identity Matrix and Verify
     // --------------------------------------
     // [ 1 0 ]
     // [ 0 1 ]
-    Mat2F32 mati = { 1, 0, 0, 1 };
-    Mat2F32 res1 = mat2f32_mul(mat1, mati);
+    Mat2F32 res1 = mat2f32_mul(mat1, mat2f32_identity());
     ASSERT(mat2f32_eq(res1, mat1));
 
     // Multiply by Another Matrix and Verify
     // -------------------------------------
     // [ 5 6 ]
     // [ 7 8 ]
-    Mat2F32 mat2 = { 5, 6, 7, 8 };
-    Mat2F32 res2 = mat2f32_mul(mat1, mat2);
-    Mat2F32 res2_expected = { 19, 22, 43, 50 };
-    ASSERT(mat2f32_eq(res2, res2_expected));
+    Mat2F32 res2 = mat2f32_mul(mat1, (Mat2F32){ 5, 6, 7, 8 });
+    ASSERT(mat2f32_eq(res2, (Mat2F32){ 19, 22, 43, 50 }));
 
     // Alternative Forms of Comparison to Consider
     // -------------------------------------------
@@ -414,7 +411,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return -1;
     }
 
-    test();
+    test_mat();
 
     // Sample Geometry and Transform
     // -----------------------------

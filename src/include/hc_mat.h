@@ -58,12 +58,24 @@ static inline Vec3F32 vec3f32(void) {
 /////////////////////////////////////////////////////////////////////////// SECTION: MAT2F32 FUNCTIONS
 
 // TODO: Look at the memory layout of this in the debugger, confirm row-major. Rightmost index is contiguous.
-typedef struct Mat2F32 {
+typedef union Mat2F32 {
     F32 e[2][2]; /// e[row][column]
+    struct {
+        F32 Xx, Yx;
+        F32 Xy, Yy;
+    };
 } Mat2F32;
 
+static inline Mat2F32 mat2f32_identity(void) {
+    // clang-format off
+    return (Mat2F32){ .e = {
+        { 1, 0 },
+        { 0, 1 }
+    } }; // clang-format on
+}
+
 static inline Mat2F32 mat2f32_mul(Mat2F32 a, Mat2F32 b) {
-    Mat2F32 result = { 0 };
+    Mat2F32 result = mat2f32_identity();
 
     //result.e[0][0] = (a.e[0][0] * b.e[0][0]) + (a.e[0][1] * b.e[1][0]);
     //result.e[0][1] = (a.e[0][0] * b.e[0][1]) + (a.e[0][1] * b.e[1][1]);
@@ -85,9 +97,7 @@ static inline Mat2F32 mat2f32_mul(Mat2F32 a, Mat2F32 b) {
 static inline B32 mat2f32_eq(Mat2F32 a, Mat2F32 b) {
     for (U32 row = 0; row < 2; ++row) {
         for (U32 column = 0; column < 2; ++column) {
-            if (a.e[row][column] != b.e[row][column]) {
-                return false;
-            }
+            if (a.e[row][column] != b.e[row][column]) { return false; }
         }
     }
     return true;
@@ -98,6 +108,11 @@ static inline B32 mat2f32_eq(Mat2F32 a, Mat2F32 b) {
 typedef union Mat4F32 {
     F32 e[4][4];
     struct {
+        //              Translation vector
+        // Basis vectors|
+        //  |   |   |   |
+        //  X   Y   Z   |
+        //  |   |   |   |
         F32 Xx, Yx, Zx, Tx;
         F32 Xy, Yy, Zy, Ty;
         F32 Xz, Yz, Zz, Tz;
@@ -105,28 +120,27 @@ typedef union Mat4F32 {
     };
 } Mat4F32;
 
-/// Returns 4x4 identity matrix
 static inline Mat4F32 mat4f32_identity(void) {
     // clang-format off
-    return (Mat4F32){ { 1, 0, 0, 0 },
-                      { 0, 1, 0, 0 },
-                      { 0, 0, 1, 0 },
-                      { 0, 0, 0, 1 } }; // clang-format on
+    return (Mat4F32){ .e = {
+        { 1, 0, 0, 0 },
+        { 0, 1, 0, 0 },
+        { 0, 0, 1, 0 },
+        { 0, 0, 0, 1 }
+    } }; // clang-format on
 }
 
 static inline B32 mat4f32_eq(Mat4F32 a, Mat4F32 b) {
     for (U32 row = 0; row < 4; ++row) {
         for (U32 column = 0; column < 4; ++column) {
-            if (a.e[row][column] != b.e[row][column]) {
-                return false;
-            }
+            if (a.e[row][column] != b.e[row][column]) { return false; }
         }
     }
     return true;
 }
 
 static inline Mat4F32 mat4f32_mul(Mat4F32 a, Mat4F32 b) {
-    Mat4F32 result = { 0 };
+    Mat4F32 result = mat4f32_identity();
     // TODO(optimization): Unrolling/SIMD
     for (U32 row = 0; row < 4; ++row) {
         for (U32 column = 0; column < 4; ++column) {
@@ -138,37 +152,60 @@ static inline Mat4F32 mat4f32_mul(Mat4F32 a, Mat4F32 b) {
     return result;
 }
 
-static inline Mat4F32 mat4f32_trans(Mat4F32 matrix, Vec3F32 translation) {
-    matrix.Tx += translation.x;
-    matrix.Ty += translation.y;
-    matrix.Tz += translation.z;
+static inline Mat4F32 mat4f32_trans(Mat4F32 matrix, Vec3F32 trans) {
+    matrix.Tx += trans.x;
+    matrix.Ty += trans.y;
+    matrix.Tz += trans.z;
     return matrix;
 }
 
-static inline Mat4F32 mat4f32_rot_x(Mat4F32 matrix, F32 rot_rad)
-{
+static inline Mat4F32 mat4f32_rot_x(Mat4F32 matrix, F32 rot_rad) {
     F32 c = cosf32(rot_rad);
     F32 s = sinf32(rot_rad);
-
     Mat4F32 r = mat4f32_identity();
-
-    r.e[1][1] = c;
-    r.e[1][2] = -s;
-    r.e[2][1] = s;
-    r.e[2][2] = c;
-
+    r.Yy = c;
+    r.Zy = -s;
+    r.Yz = s;
+    r.Zz = c;
     return mat4f32_mul(matrix, r);
 }
 
-static inline Mat4F32 mat4f32_rot(Mat4F32 matrix, Vec3F32 angles_radians) {
-    Mat4F32 result = { 0 };
+static inline Mat4F32 mat4f32_rot_y(Mat4F32 matrix, F32 rot_rad) {
+    F32 c = cosf32(rot_rad);
+    F32 s = sinf32(rot_rad);
+    Mat4F32 r = mat4f32_identity();
+    r.Xx = c;
+    r.Zx = s;
+    r.Xz = -s;
+    r.Zz = c;
+    return mat4f32_mul(matrix, r);
+}
 
-    return result;
+static inline Mat4F32 mat4f32_rot_z(Mat4F32 matrix, F32 rot_rad) {
+    F32 c = cosf32(rot_rad);
+    F32 s = sinf32(rot_rad);
+    Mat4F32 r = mat4f32_identity();
+    r.Xx = c;
+    r.Yx = -s;
+    r.Xy = s;
+    r.Yy = c;
+    return mat4f32_mul(matrix, r);
+}
+
+static inline Mat4F32 mat4f32_rot_xyz(Mat4F32 matrix, Vec3F32 rots_rad) {
+    matrix = mat4f32_rot_x(matrix, rots_rad.x);
+    matrix = mat4f32_rot_y(matrix, rots_rad.y);
+    matrix = mat4f32_rot_z(matrix, rots_rad.z);
+    return matrix;
 }
 
 static inline Mat4F32 mat4f32_scale(Mat4F32 matrix, Vec3F32 scale) {
+    Mat4F32 s = mat4f32_identity();
+    s.Xx = scale.x;
+    s.Yy = scale.y;
+    s.Zz = scale.z;
+    return mat4f32_mul(matrix, s);
 }
-
 
 /*
     Multiplying Matrices (When):
