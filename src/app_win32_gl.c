@@ -1,5 +1,7 @@
 #include "gl.h"
+
 #include "hc_mat.h"
+#include "hc_vec.h"
 
 #include <Windows.h>
 
@@ -342,8 +344,8 @@ static inline GLuint win32gl_prg_create(void) {
     return prg;
 }
 
-//static Mat4x4F32 calculate_mvp(const Transform &transform, const Mat4x4F32 &view, const Mat4x4F32 &projection) {
-//    Mat4x4F32 model = Mat4x4F32(1.0F);
+//static Mat4F32 calculate_mvp(const Transform &transform, const Mat4F32 &view, const Mat4F32 &projection) {
+//    Mat4F32 model = Mat4F32(1.0F);
 //    model = glm::translate(model, transform.pos);
 //
 //    model = glm::rotate(model, transform.ori.x, glm::vec3(1.0F, 0.F, 0.0F));
@@ -362,38 +364,47 @@ typedef struct Transform {
     Vec3F32 angvel;
 } Transform;
 
-static inline Mat4x4F32 calculate_mvp(const Transform transform, const Mat4x4F32 view, const Mat4x4F32 projection) {
+static inline Mat4F32 calculate_mvp(const Transform transform, const Mat4F32 view, const Mat4F32 projection) {
+    Mat4F32 model = mat4f32_identity();
+    model = mat4f32_trans(model, transform.pos);
+    model = mat4f32_rot(model, transform.ori);
+    model = mat4f32_scale(model, transform.scale);
+    return model * view * projection;
 }
 
 static inline void test(void) {
-    // Original matrix
+    // Original Matrix
+    // ---------------
     // [ 1 2 ]
     // [ 3 4 ]
-    Mat2x2F32 mat1 = { 1, 2, 3, 4 }; // store it internally as either row or column major, but init is the same
+    Mat2F32 mat1 = { 1, 2, 3, 4 }; // store it internally as either row or column major, but init is the same
 
-    // Multiply by identity matrix and verify
-    Mat2x2F32 mati = { 1, 0, 0, 1 }; // this is a constant, should be able to create a new matrix using the identity (eg, something like `matrix = MAT4I` constant)
-    Mat2x2F32 res1 = mat2x2f32_mul(mat1, mati);
-    //                row1  row2
-    //ASSERT(res1.e == {1, 2, 3, 4});
-    ASSERT(res1.e[0][0] == 1.0F);
-    ASSERT(res1.e[0][1] == 2.0F);
-    ASSERT(res1.e[1][0] == 3.0F);
-    ASSERT(res1.e[1][1] == 4.0F);
-    //ASSERT(res1.e == mat1.e);
+    // Multiply by Identity Matrix and Verify
+    // --------------------------------------
+    // [ 1 0 ]
+    // [ 0 1 ]
+    Mat2F32 mati = { 1, 0, 0, 1 };
+    Mat2F32 res1 = mat2f32_mul(mat1, mati);
+    ASSERT(mat2f32_eq(res1, mat1));
 
-    // Multiply by another matrix and verify
+    // Multiply by Another Matrix and Verify
+    // -------------------------------------
     // [ 5 6 ]
     // [ 7 8 ]
-    Mat2x2F32 mat2 = { 5, 6, 7, 8 };
-    Mat2x2F32 res2 = mat2x2f32_mul(mat1, mat2);
-    //ASSERT(res2.e == {19, 22, 43, 50});
-    ASSERT(res2.e[0][0] == 19.0F);
-    ASSERT(res2.e[0][1] == 22.0F);
-    ASSERT(res2.e[1][0] == 43.0F);
-    ASSERT(res2.e[1][1] == 50.0F);
-}
+    Mat2F32 mat2 = { 5, 6, 7, 8 };
+    Mat2F32 res2 = mat2f32_mul(mat1, mat2);
+    Mat2F32 res2_expected = { 19, 22, 43, 50 };
+    ASSERT(mat2f32_eq(res2, res2_expected));
 
+    // Alternative Forms of Comparison to Consider
+    // -------------------------------------------
+    //                    row1    row2
+    //ASSERT(res2.e == { 19, 22, 43, 50 });
+    //ASSERT(mat2f32_eq(res2, res2_expected));
+    //ASSERT(arreq(res2.e, res2_expected.e));
+    //ASSERT(MAT_EQ(res2, res2_expected));
+    //ASSERT(mat_eq(res2, res2_expected));
+}
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
     (void)nShowCmd, (void)lpCmdLine, (void)hPrevInstance;
@@ -416,8 +427,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     const U32 index_buffer[] = { 0, 1, 2, 0, 2, 3 };
     GL_VAOInfo vao_info = gl_vao_create(vertex_buffer, index_buffer, sizeof(vertex_buffer), sizeof(index_buffer));
 
-    //Mat4x4F32 model_transform = {};
-
+    //Mat4F32 model_transform = {};
 
     // Textures
     // --------
@@ -442,7 +452,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     GL(glUniform1i(u_texunit1_loc, 0));
 
     // u_mvp
-    //Mat4x4F32 u_mvp = calculate_mvp(transform, view_matrix, proj_matrix);
+    //Mat4F32 u_mvp = calculate_mvp(transform, view_matrix, proj_matrix);
     GLint u_mvp_loc = gl_prg_get_uloc(shader_program, "u_mvp");
     //GL(glUniformMatrix4fv(u_mvp_loc, 1, GL_FALSE, &u_mvp[0][0]));
 
