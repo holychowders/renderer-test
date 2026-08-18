@@ -56,7 +56,7 @@ B32 gl_glew_init(void) {
 ////////////////////////////////////////////////////////////////////////// SECTION: VAO (VERTEX ARRAY OBJECT)
 
 /// Create a Vertex Array Object from a vertex and index buffer, which we can then draw
-GL_VAOInfo gl_vao_create(F32 *vb, U32 *ib, size_t vb_size, size_t ib_size) {
+GL_VAOInfo gl_vao_create(const F32 *vb, const U32 *ib, size_t vb_size, size_t ib_size) {
     // Create VAO
     // ----------
     GLuint vao = { 0 };

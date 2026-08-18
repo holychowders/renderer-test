@@ -415,16 +415,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     // Sample Geometry and Transform
     // -----------------------------
-    const F32 vertex_buffer[] = {
+    const F32 sample_vb[] = {
         /*pos*/ -0.5F, -0.5F, 0.0F, /*tex*/ 0.0F, 0.0F, // 0 bottom-left
         /*pos*/ +0.5F, -0.5F, 0.0F, /*tex*/ 1.0F, 0.0F, // 1 bottom-right
         /*pos*/ +0.5F, +0.5F, 0.0F, /*tex*/ 1.0F, 1.0F, // 2 top-right
         /*pos*/ -0.5F, +0.5F, 0.0F, /*tex*/ 0.0F, 1.0F, // 3 top-left
     };
-    const U32 index_buffer[] = { 0, 1, 2, 0, 2, 3 };
-    GL_VAOInfo vao_info = gl_vao_create(vertex_buffer, index_buffer, sizeof(vertex_buffer), sizeof(index_buffer));
+    const U32 sample_ib[] = { 0, 1, 2, 0, 2, 3 };
+    GL_VAOInfo sample_vao_info = gl_vao_create(sample_vb, sample_ib, sizeof(sample_vb), sizeof(sample_ib));
 
-    //Mat4F32 model_transform = {};
+    Transform sample_transform = { .pos = (Vec3F32){ 0, 0, 0 },
+                                   .scale = (Vec3F32){ 1, 1, 1 },
+                                   .ori = (Vec3F32){ 0, 0, 0 },
+                                   .angvel = (Vec3F32){ 0, 0, 0 } };
 
     // Textures
     // --------
@@ -438,20 +441,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     // Shared Transforms
     // -----------------
+    Mat4F32 view_matrix = mat4f32_identity();
+    Mat4F32 proj_matrix = mat4f32_identity();
 
     // Shader Uniforms
     // ---------------
     // u_color
     F32 u_color[] = { 1.0F, 0.25F, 0.25F, 1.0F };
 
-    // u_texunit
+    // Uniform Locations
     GLint u_texunit1_loc = gl_prg_get_uloc(shader_program, "u_texunit1");
-    GL(glUniform1i(u_texunit1_loc, 0));
-
-    // u_mvp
-    //Mat4F32 u_mvp = calculate_mvp(transform, view_matrix, proj_matrix);
     GLint u_mvp_loc = gl_prg_get_uloc(shader_program, "u_mvp");
-    //GL(glUniformMatrix4fv(u_mvp_loc, 1, GL_FALSE, &u_mvp[0][0]));
+
+    // Set Uniforms
+    GL(glUniform1i(u_texunit1_loc, 0));
 
     S32 exit_code = 0;
     while (g_running) {
@@ -467,14 +470,26 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
         if (!g_running) { break; }
 
-        gl_clear_background(0.1F, 0.1F, 0.1F, 1);
-        gl_vao_draw(vao_info, shader_program, u_color);
+        //static F32 timer = 0.F;
+        //timer+=0.0001F;
+        //sample_transform.pos.x = timer;
 
+        // MVP
+        // ---
+        Mat4F32 u_mvp = calculate_mvp(sample_transform, view_matrix, proj_matrix);
+        GL(glUniformMatrix4fv(u_mvp_loc, 1, GL_TRUE, &u_mvp.Xx));
+
+        // Drawing
+        // -------
+        gl_clear_background(0.1F, 0.1F, 0.1F, 1);
+        gl_vao_draw(sample_vao_info, shader_program, u_color);
+
+        // End of Frame
+        // ------------
         SwapBuffers(init_info.window_dc);
     }
 
-    gl_vao_delete(&vao_info);
-
+    gl_vao_delete(&sample_vao_info);
     win32gl_shutdown(init_info);
 
     return exit_code;

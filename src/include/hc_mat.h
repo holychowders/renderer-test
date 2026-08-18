@@ -75,7 +75,7 @@ static inline Mat2F32 mat2f32_identity(void) {
 }
 
 static inline Mat2F32 mat2f32_mul(Mat2F32 a, Mat2F32 b) {
-    Mat2F32 result = mat2f32_identity();
+    Mat2F32 result = { 0 };
 
     //result.e[0][0] = (a.e[0][0] * b.e[0][0]) + (a.e[0][1] * b.e[1][0]);
     //result.e[0][1] = (a.e[0][0] * b.e[0][1]) + (a.e[0][1] * b.e[1][1]);
@@ -140,7 +140,7 @@ static inline B32 mat4f32_eq(Mat4F32 a, Mat4F32 b) {
 }
 
 static inline Mat4F32 mat4f32_mul(Mat4F32 a, Mat4F32 b) {
-    Mat4F32 result = mat4f32_identity();
+    Mat4F32 result = { 0 };
     // TODO(optimization): Unrolling/SIMD
     for (U32 row = 0; row < 4; ++row) {
         for (U32 column = 0; column < 4; ++column) {
@@ -152,11 +152,12 @@ static inline Mat4F32 mat4f32_mul(Mat4F32 a, Mat4F32 b) {
     return result;
 }
 
-static inline Mat4F32 mat4f32_trans(Mat4F32 matrix, Vec3F32 trans) {
-    matrix.Tx += trans.x;
-    matrix.Ty += trans.y;
-    matrix.Tz += trans.z;
-    return matrix;
+static inline Mat4F32 mat4f32_trans(Mat4F32 m, Vec3F32 t) {
+    m.Tx += m.Xx * t.x + m.Yx * t.y + m.Zx * t.z;
+    m.Ty += m.Xy * t.x + m.Yy * t.y + m.Zy * t.z;
+    m.Tz += m.Xz * t.x + m.Yz * t.y + m.Zz * t.z;
+    m.Tw += m.Xw * t.x + m.Yw * t.y + m.Zw * t.z;
+    return m;
 }
 
 static inline Mat4F32 mat4f32_rot_x(Mat4F32 matrix, F32 rot_rad) {
