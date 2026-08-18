@@ -7,6 +7,10 @@
 //#include "glm/glm.hpp"
 //typedef glm::mat4 Mat4F32;
 
+/////////////////////////////////////////////////////////////////////////// SECTION: CONSTANTS
+
+#define PI_F32 3.1415927f
+
 /////////////////////////////////////////////////////////////////////////// SECTION: TRIGONOMETRIC FUNCTIONS
 
 static inline F32 sinf32(F32 v) {
@@ -14,6 +18,13 @@ static inline F32 sinf32(F32 v) {
 }
 static inline F32 cosf32(F32 v) {
     return cosf(v);
+}
+static inline F32 tanf32(F32 v) {
+    return tanf(v);
+}
+
+static inline F32 deg_to_rad(F32 d) {
+    return d * (PI_F32 / 180.0F);
 }
 
 /////////////////////////////////////////////////////////////////////////// SECTION: VECTORS
@@ -31,9 +42,6 @@ typedef union Vec3F32 {
     };
     F32 e[3];
 } Vec3F32;
-
-static inline Vec3F32 vec3f32(void) {
-}
 
 /////////////////////////////////////////////////////////////////////////// SECTION: MATRIX CONVENTIONS
 
@@ -206,6 +214,17 @@ static inline Mat4F32 mat4f32_scale(Mat4F32 matrix, Vec3F32 scale) {
     s.Yy = scale.y;
     s.Zz = scale.z;
     return mat4f32_mul(matrix, s);
+}
+
+static inline Mat4F32 mat4f32_perspective(F32 fov_y_rad, F32 aspect, F32 near_z, F32 far_z) {
+    F32 f = 1.0F / tanf32(fov_y_rad * 0.5F);
+    Mat4F32 result = { 0 };
+    result.Xx = f / aspect;
+    result.Yy = f;
+    result.Zz = (far_z + near_z) / (near_z - far_z);
+    result.Tz = (2.0F * far_z * near_z) / (near_z - far_z);
+    result.Zw = -1.0F;
+    return result;
 }
 
 /*

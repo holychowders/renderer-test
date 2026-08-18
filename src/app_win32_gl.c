@@ -16,6 +16,8 @@ static FType_wglSwapIntervalEXT *wglSwapIntervalEXT;
 ////////////////////////////////////////////////////////////////////////// SECTION: CONSTANTS
 
 static B32 g_running = true;
+static S32 g_current_window_width = 1280;
+static S32 g_current_window_height = 720;
 
 ////////////////////////////////////////////////////////////////////////// SECTION: MACROS
 
@@ -210,7 +212,7 @@ static inline HWND win32_create_window(HINSTANCE hInstance) {
                                          WS_OVERLAPPEDWINDOW, // style
                                          CW_USEDEFAULT, CW_USEDEFAULT, // x, y pos
                                          //CW_USEDEFAULT, CW_USEDEFAULT, // width, height
-                                         720, 720, // width, height
+                                         g_current_window_width, g_current_window_height, // width, height
                                          NULL, NULL, hInstance, NULL // misc
     ); // clang-format on
 
@@ -369,7 +371,7 @@ static inline Mat4F32 calculate_mvp(const Transform transform, const Mat4F32 vie
     model = mat4f32_trans(model, transform.pos);
     model = mat4f32_rot_xyz(model, transform.ori);
     model = mat4f32_scale(model, transform.scale);
-    return mat4f32_mul(mat4f32_mul(model, view), projection);
+    return mat4f32_mul(projection, mat4f32_mul(view, model));
 }
 
 static inline void test_mat(void) {
@@ -441,8 +443,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     // Shared Transforms
     // -----------------
-    Mat4F32 view_matrix = mat4f32_identity();
-    Mat4F32 proj_matrix = mat4f32_identity();
+    Mat4F32 view_matrix = mat4f32_trans(mat4f32_identity(), (Vec3F32){ 0, 0, -3 });
+    F32 fov_y_rad = deg_to_rad(45);
+    F32 aspect = (F32)g_current_window_width / (F32)g_current_window_height;
+    Mat4F32 proj_matrix = mat4f32_perspective(fov_y_rad, aspect, 0.1F, 100.0F);
 
     // Shader Uniforms
     // ---------------
@@ -470,9 +474,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
         if (!g_running) { break; }
 
-        //static F32 timer = 0.F;
-        //timer+=0.0001F;
-        //sample_transform.pos.x = timer;
+        static F32 timer = 0.F;
+        timer += 0.01F;
+        sample_transform.ori.x = timer;
 
         // MVP
         // ---
