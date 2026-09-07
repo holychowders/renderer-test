@@ -340,7 +340,7 @@ static inline void win32gl_shutdown(Win32GL_InitInfo init_info) {
 static inline GLuint win32gl_prg_create(void) {
     char *vs_src = win32_prg_src_load("assets/shaders/vertex.glsl");
     char *fs_src = win32_prg_src_load("assets/shaders/fragment.glsl");
-    GLuint prg = gl_prg_create(vs_src, fs_src); // TODO: Pass a vector of shader sources?
+    GLuint prg = gl_prg_create(vs_src, fs_src); // TODO: Pass a vector of shader sources to support different shader types?
     free(vs_src);
     free(fs_src);
     return prg;
@@ -433,8 +433,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     // Textures
     // --------
-    GLuint texture = gl_texture_from_image("assets/textures/Faces for a Dying Land/creep13.png");
-    GL(glBindTextureUnit(0, texture));
+    GLuint sample_texture = gl_texture_from_image("assets/textures/Faces for a Dying Land/creep13.png");
+    GL(glBindTextureUnit(0, sample_texture));
 
     // Shaders
     // -------

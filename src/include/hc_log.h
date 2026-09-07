@@ -41,15 +41,9 @@ static inline void marker(void) {
     fflush(stdout);
 }
 
-static inline void info(const char *msg) {
-    info_re(NULL, msg);
-}
-static inline void warn(const char *msg) {
-    warn_re(NULL, msg);
-}
-static inline void error(const char *msg) {
-    error_re(NULL, msg);
-}
+static inline void info(const char *msg) { info_re(NULL, msg); }
+static inline void warn(const char *msg) { warn_re(NULL, msg); }
+static inline void error(const char *msg) { error_re(NULL, msg); }
 
 static inline void info_re(const char *re, const char *msg) {
     if (re) { fprintf(stdout, "INFO [%s]: %s\n", re, msg); }

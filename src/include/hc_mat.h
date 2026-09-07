@@ -11,23 +11,18 @@
 
 #define PI_F32 3.1415927f
 
-/////////////////////////////////////////////////////////////////////////// SECTION: TRIGONOMETRIC FUNCTIONS
+/////////////////////////////////////////////////////////////////////////// SECTION: BASIC MATH
 
-static inline F32 sinf32(F32 v) {
-    return sinf(v);
-}
-static inline F32 cosf32(F32 v) {
-    return cosf(v);
-}
-static inline F32 tanf32(F32 v) {
-    return tanf(v);
-}
+static inline F32 sqrtf32(F32 v) { return sqrtf(v); }
 
-static inline F32 deg_to_rad(F32 d) {
-    return d * (PI_F32 / 180.0F);
-}
+// Trigonometry
+// ------------
+static inline F32 sinf32(F32 v) { return sinf(v); }
+static inline F32 cosf32(F32 v) { return cosf(v); }
+static inline F32 tanf32(F32 v) { return tanf(v); }
+static inline F32 deg_to_rad(F32 d) { return d * (PI_F32 / 180.0F); }
 
-/////////////////////////////////////////////////////////////////////////// SECTION: VECTORS
+/////////////////////////////////////////////////////////////////////////// SECTION: VEC3F32
 
 typedef union Vec3F32 {
     struct {
@@ -43,8 +38,35 @@ typedef union Vec3F32 {
     F32 e[3];
 } Vec3F32;
 
-/////////////////////////////////////////////////////////////////////////// SECTION: MATRIX CONVENTIONS
+// Arithmetic
+// ----------
+static inline Vec3F32 vec3f32_add(Vec3F32 a, Vec3F32 b) { return (Vec3F32){ a.x + b.x, a.y + b.y, a.z + b.z }; }
+static inline Vec3F32 vec3f32_sub(Vec3F32 a, Vec3F32 b) { return (Vec3F32){ a.x - b.x, a.y - b.y, a.z - b.z }; }
+static inline Vec3F32 vec3f32_scale(Vec3F32 v, F32 s) { return (Vec3F32){ v.x * s, v.y * s, v.z * s }; }
 
+// Multiplication
+// --------------
+static inline F32 vec3f32_dot(Vec3F32 a, Vec3F32 b) { return (a.x * b.x) + (a.y * b.y) + (a.z * b.z); }
+static inline Vec3F32 vec3f32_cross(Vec3F32 a, Vec3F32 b) {
+    return (Vec3F32){ (a.y * b.z) - (a.z * b.y), //
+                      (a.z * b.x) - (a.x * b.z),
+                      (a.x * b.y) - (a.y * b.x) };
+}
+
+// Magnitude/Normalization
+// -----------------------
+static inline F32 vec3f32_mag_sq(Vec3F32 v) { return vec3f32_dot(v, v); }
+static inline F32 vec3f32_mag(Vec3F32 v) { return sqrtf32(vec3f32_mag_sq(v)); }
+/// NOTE: Returns zero vector if v has zero magnitude.
+static inline Vec3F32 vec3f32_norm(Vec3F32 v) {
+    F32 vmag = vec3f32_mag(v);
+    return (vmag) ? (vec3f32_scale(v, 1.0F / vmag)) : (Vec3F32){ 0 };
+}
+
+/////////////////////////////////////////////////////////////////////////// SECTION: MATRIX INFO AND HELPERS
+
+// Matrix Conventions
+// ------------------
 /*
     Row-major (ie: matrix.e[row][column] and contiguous on column index)
       Example: 2x2 Matrix
@@ -59,11 +81,11 @@ typedef union Vec3F32 {
         mat.e[1][1] = 4
 */
 
-/////////////////////////////////////////////////////////////////////////// SECTION: MATRIX HELPERS
-
+// Matrix Helpers
+// --------------
 //#define MAT_EQ(a, b) ((sizeof((a).e) == sizeof((b).e)) && (memcmp((a).e, (b).e, sizeof((a).e)) == 0))
 
-/////////////////////////////////////////////////////////////////////////// SECTION: MAT2F32 FUNCTIONS
+/////////////////////////////////////////////////////////////////////////// SECTION: MAT2F32
 
 // TODO: Look at the memory layout of this in the debugger, confirm row-major. Rightmost index is contiguous.
 typedef union Mat2F32 {
@@ -111,7 +133,7 @@ static inline B32 mat2f32_eq(Mat2F32 a, Mat2F32 b) {
     return true;
 }
 
-/////////////////////////////////////////////////////////////////////////// SECTION: MAT4F32 FUNCTIONS
+/////////////////////////////////////////////////////////////////////////// SECTION: MAT4F32
 
 typedef union Mat4F32 {
     F32 e[4][4];
@@ -227,31 +249,34 @@ static inline Mat4F32 mat4f32_perspective(F32 fov_y_rad, F32 aspect, F32 near_z,
     return result;
 }
 
-//static inline Vec3F32 vec3f32_norm() {
-//}
-//static inline Vec3F32 vec3f32_len() {
-//
-//}
-//static inline Vec3F32 vec3f32_sub() {
-//}
-//static inline Vec3F32 vec3f32_cross(Vec3F32 a, Vec3F32 b) {
-//}
-//static inline Vec3F32 vec3f32_dot() {
-//}
-//
-//static inline Mat4F32 mat4f32_look_at(Vec3F32 eye, Vec3F32 target, Vec3F32 up) {
-//    Vec3F32 f = vec3f32_norm(vec3f32_sub(target, eye));
-//    Vec3F32 s = vec3f32_norm(vec3f32_cross(f, up));
-//    Vec3F32 u = vec3f32_cross(s, f);
-//
-//    // clang-format off
-//    return (Mat4F32){ {
-//         s.x,  s.y,  s.z, -vec3f32_dot(s, eye),
-//         u.x,  u.y,  u.z, -vec3f32_dot(u, eye),
-//        -f.x, -f.y, -f.z,  vec3f32_dot(f, eye),
-//         0,    0,    0,    1
-//    } }; // clang-format on
-//}
+/// NOTE: Returns false and outputs identity matrix if eye == target or up is parallel to the view direction.
+static inline B32 mat4f32_look_at(Mat4F32 *out, Vec3F32 eye, Vec3F32 target, Vec3F32 up) {
+    // Compute orthonormal basis axes
+    Vec3F32 f = vec3f32_sub(target, eye);
+    Vec3F32 r = vec3f32_cross(f, up);
+
+    // Degeneracy test
+    if (!vec3f32_mag_sq(r)) {
+        *out = mat4f32_identity();
+        return false;
+    }
+
+    f = vec3f32_norm(f);             // forward/look direction: vector pointing from camera (eye) toward target
+    r = vec3f32_norm(r);             // right direction: get the vector perpendicular to the forward and up directions
+    Vec3F32 u = vec3f32_cross(r, f); // corrected up direction: get the vector perpendicular to the forward and right directions
+
+    // Camera-relative view matrix coordinates
+    *out = (Mat4F32){ { // clang-format off
+        r.x,  r.y,  r.z, -vec3f32_dot(r, eye),
+        u.x,  u.y,  u.z, -vec3f32_dot(u, eye),
+       -f.x, -f.y, -f.z,  vec3f32_dot(f, eye),
+        0.0F, 0.0F, 0.0F, 1.0F
+    } }; // clang-format on
+
+    return true;
+}
+
+/////////////////////////////////////////////////////////////////////////// SECTION: MATH NOTES
 
 /*
     Multiplying Matrices (When):

@@ -241,9 +241,7 @@ B32 gl_prg_bind(GLuint prg) {
     return true;
 }
 
-void gl_prg_unbind(void) {
-    GL(glUseProgram(0));
-}
+void gl_prg_unbind(void) { GL(glUseProgram(0)); }
 
 GLint gl_prg_get_uloc(GLuint shader_program, const char *name) {
     GL(GLint location = glGetUniformLocation(shader_program, name));

@@ -60,10 +60,7 @@ static inline size_t str8_len(UTF8 str) {
 }
 
 // Create a Str8 from a NUL-terminated C string
-static inline Str8 str8(UTF8 str) {
-
-    return (Str8){ .str = str, .size_bytes = str8_len(str) };
-}
+static inline Str8 str8(UTF8 str) { return (Str8){ .str = str, .size_bytes = str8_len(str) }; }
 
 #if 0
 typedef struct Str16 Str16;
