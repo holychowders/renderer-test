@@ -433,7 +433,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     // Textures
     // --------
-    GLuint texture = gl_texture_from_image("assets/images/Faces for a Dying Land/creep13.png");
+    GLuint texture = gl_texture_from_image("assets/textures/Faces for a Dying Land/creep13.png");
     GL(glBindTextureUnit(0, texture));
 
     // Shaders

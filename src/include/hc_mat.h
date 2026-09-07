@@ -161,10 +161,10 @@ static inline Mat4F32 mat4f32_mul(Mat4F32 a, Mat4F32 b) {
 }
 
 static inline Mat4F32 mat4f32_trans(Mat4F32 m, Vec3F32 t) {
-    m.Tx += m.Xx * t.x + m.Yx * t.y + m.Zx * t.z;
-    m.Ty += m.Xy * t.x + m.Yy * t.y + m.Zy * t.z;
-    m.Tz += m.Xz * t.x + m.Yz * t.y + m.Zz * t.z;
-    m.Tw += m.Xw * t.x + m.Yw * t.y + m.Zw * t.z;
+    m.Tx += (m.Xx * t.x) + (m.Yx * t.y) + (m.Zx * t.z);
+    m.Ty += (m.Xy * t.x) + (m.Yy * t.y) + (m.Zy * t.z);
+    m.Tz += (m.Xz * t.x) + (m.Yz * t.y) + (m.Zz * t.z);
+    m.Tw += (m.Xw * t.x) + (m.Yw * t.y) + (m.Zw * t.z);
     return m;
 }
 
