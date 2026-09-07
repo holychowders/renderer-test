@@ -433,7 +433,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     // Textures
     // --------
-    GLuint texture = gl_texture_from_image("assets/images/Faces for a Dying Land/creep12.png");
+    GLuint texture = gl_texture_from_image("assets/images/Faces for a Dying Land/creep13.png");
     GL(glBindTextureUnit(0, texture));
 
     // Shaders
@@ -475,7 +475,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         if (!g_running) { break; }
 
         static F32 timer = 0.F;
-        timer += 0.01F;
+        timer -= 0.015F;
+        //sample_transform.pos.x = timer/8;
         sample_transform.ori.x = timer;
 
         // MVP

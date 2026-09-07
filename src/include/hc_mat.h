@@ -227,6 +227,32 @@ static inline Mat4F32 mat4f32_perspective(F32 fov_y_rad, F32 aspect, F32 near_z,
     return result;
 }
 
+//static inline Vec3F32 vec3f32_norm() {
+//}
+//static inline Vec3F32 vec3f32_len() {
+//
+//}
+//static inline Vec3F32 vec3f32_sub() {
+//}
+//static inline Vec3F32 vec3f32_cross(Vec3F32 a, Vec3F32 b) {
+//}
+//static inline Vec3F32 vec3f32_dot() {
+//}
+//
+//static inline Mat4F32 mat4f32_look_at(Vec3F32 eye, Vec3F32 target, Vec3F32 up) {
+//    Vec3F32 f = vec3f32_norm(vec3f32_sub(target, eye));
+//    Vec3F32 s = vec3f32_norm(vec3f32_cross(f, up));
+//    Vec3F32 u = vec3f32_cross(s, f);
+//
+//    // clang-format off
+//    return (Mat4F32){ {
+//         s.x,  s.y,  s.z, -vec3f32_dot(s, eye),
+//         u.x,  u.y,  u.z, -vec3f32_dot(u, eye),
+//        -f.x, -f.y, -f.z,  vec3f32_dot(f, eye),
+//         0,    0,    0,    1
+//    } }; // clang-format on
+//}
+
 /*
     Multiplying Matrices (When):
       - To multiply any two matrices, the number of columns in the first matrix must match the number of rows in the second matrix.
