@@ -287,7 +287,25 @@ GLuint gl_texture_from_image(const char *fpath) {
     return texture;
 }
 
-GLuint gl_texture_delete(GLuint *texture) {
+void gl_texture_delete(GLuint *texture) {
     GL(glDeleteTextures(1, texture));
     *texture = 0;
 }
+
+////////////////////////////////////////////////////////////////////////// SECTION: MISC
+
+#if 0
+    #define GL_INFO(msg) info_re("Renderer/GL", (msg))
+    #define GL_WARN(msg) warn_re("Renderer/GL", (msg))
+    #define GL_ERROR(msg) error_re("Renderer/GL", (msg))
+    #define GL_ERROR_DETAILED(msg) ERROR_RE_DETAILED("Renderer/GL", (msg))
+#endif
+
+#if 0
+    #define GL(gl_operation)                                                                                                                         \
+        do {                                                                                                                                         \
+            gl_clear_errors();                                                                                                                       \
+            gl_operation;                                                                                                                            \
+            ASSERT_MSG(!gl_check_errors(), #gl_operation);                                                                                           \
+        } while (0)
+#endif

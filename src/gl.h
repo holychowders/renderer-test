@@ -48,4 +48,4 @@ B32 gl_prg_verify(GLuint prg);
 ////////////////////////////////////////////////////////////////////////// SECTION: TEXTURES
 
 GLuint gl_texture_from_image(const char *fpath);
-GLuint gl_texture_delete(GLuint *texture);
+void gl_texture_delete(GLuint *texture);

@@ -20,6 +20,7 @@ static inline F32 sqrtf32(F32 v) { return sqrtf(v); }
 static inline F32 sinf32(F32 v) { return sinf(v); }
 static inline F32 cosf32(F32 v) { return cosf(v); }
 static inline F32 tanf32(F32 v) { return tanf(v); }
+static inline F32 absf32(F32 v) { return fabsf(v); }
 static inline F32 deg_to_rad(F32 d) { return d * (PI_F32 / 180.0F); }
 
 /////////////////////////////////////////////////////////////////////////// SECTION: VEC3F32
@@ -60,7 +61,7 @@ static inline F32 vec3f32_mag(Vec3F32 v) { return sqrtf32(vec3f32_mag_sq(v)); }
 /// NOTE: Returns zero vector if v has zero magnitude.
 static inline Vec3F32 vec3f32_norm(Vec3F32 v) {
     F32 vmag = vec3f32_mag(v);
-    return (vmag) ? (vec3f32_scale(v, 1.0F / vmag)) : (Vec3F32){ 0 };
+    return (vmag != 0) ? (vec3f32_scale(v, 1.0F / vmag)) : (Vec3F32){ 0 };
 }
 
 /////////////////////////////////////////////////////////////////////////// SECTION: MATRIX INFO AND HELPERS
@@ -256,7 +257,7 @@ static inline B32 mat4f32_look_at(Mat4F32 *out, Vec3F32 eye, Vec3F32 target, Vec
     Vec3F32 r = vec3f32_cross(f, up);
 
     // Degeneracy test
-    if (!vec3f32_mag_sq(r)) {
+    if (vec3f32_mag_sq(r) == 0) {
         *out = mat4f32_identity();
         return false;
     }

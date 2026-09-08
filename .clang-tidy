@@ -12,6 +12,7 @@ Checks: >
 
   clang-analyzer-*,
   -clang-analyzer-deadcode.DeadStores,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
 
   concurrency-mt-unsafe,
 
@@ -49,6 +50,7 @@ Checks: >
   -readability-magic-numbers,
   -readability-named-parameter,
   -readability-non-const-parameter,
+  -readability-use-concise-preprocessor-directives,
 
 WarningsAsErrors: ''
 HeaderFilterRegex: ''
