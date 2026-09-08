@@ -336,19 +336,6 @@ static inline GLuint win32gl_prg_create(void) {
     return prg;
 }
 
-//static Mat4F32 calculate_mvp(const Transform &transform, const Mat4F32 &view, const Mat4F32 &projection) {
-//    Mat4F32 model = Mat4F32(1.0F);
-//    model = glm::translate(model, transform.pos);
-//
-//    model = glm::rotate(model, transform.ori.x, glm::vec3(1.0F, 0.F, 0.0F));
-//    model = glm::rotate(model, transform.ori.y, glm::vec3(0.0F, 1.F, 0.0F));
-//    model = glm::rotate(model, transform.ori.z, glm::vec3(0.0F, 0.F, 1.0F));
-//
-//    model = glm::scale(model, transform.scale);
-//
-//    return projection * view * model;
-//}
-
 static inline Mat4F32 calculate_mvp(const Transform transform, const Mat4F32 view, const Mat4F32 projection) {
     Mat4F32 model = mat4f32_identity();
     model = mat4f32_trans(model, transform.pos);
@@ -441,8 +428,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     GLint u_texunit1_loc = gl_prg_get_uloc(shader_program, "u_texunit1");
     GLint u_mvp_loc = gl_prg_get_uloc(shader_program, "u_mvp");
 
+    GLint u_light_ambient_color_loc = gl_prg_get_uloc(shader_program, "u_light_ambient_color");
+    GLint u_light_ambient_intensity_loc = gl_prg_get_uloc(shader_program, "u_light_ambient_intensity");
+
     // Set Uniforms
     GL(glUniform1i(u_texunit1_loc, 0));
+
+    GL(glUniform3f(u_light_ambient_color_loc, 1.0F, 1.0F, 1.0F));
+    GL(glUniform1f(u_light_ambient_intensity_loc, 0.0F));
 
     S32 exit_code = 0;
     while (g_running) {
@@ -478,6 +471,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         ASSERT(mat4f32_look_at(&view_matrix, (Vec3F32){ camx, 0, camz }, (Vec3F32){ 0 }, (Vec3F32){ 0, 1, 0 }));
         //view_matrix = mat4f32_trans(mat4f32_identity(), (Vec3F32){ 0, 0, -5 });
 
+        GL(glUniform1f(u_light_ambient_intensity_loc, absf32(sinf32(timer))));
+
         Mat4F32 u_mvp = mat4f32_identity();
         for (S32 i = -50; i < 60; i++) {
             for (S32 j = -30; j < 40; j++) {
@@ -486,6 +481,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 sample_transform.pos.z = -(F32)j;
                 u_mvp = calculate_mvp(sample_transform, view_matrix, proj_matrix);
                 GL(glUniformMatrix4fv(u_mvp_loc, 1, GL_TRUE, &u_mvp.Xx));
+
                 gl_vao_draw(sample_vao_info, shader_program, u_color); //
             }
         }

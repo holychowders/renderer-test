@@ -25,6 +25,7 @@ Native Windows OpenGL renderer prototype written in C with the goal of expanding
 - Build as library to enable standalone demo programs
 - Renderer hotloading
 - glTF loading
+- Live shader/material editor
 
 ### Medium-Term Goals
 
