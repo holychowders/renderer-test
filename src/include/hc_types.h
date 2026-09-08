@@ -2,26 +2,26 @@
 
 #include <stdint.h>
 
-// SECTON: SIGNED INTS
+// SECTION: SIGNED INTS
 
 typedef int8_t S8;
 typedef int16_t S16;
 typedef int32_t S32;
 typedef int64_t S64;
 
-// SECTON: UNSIGNED INTS
+// SECTION: UNSIGNED INTS
 
 typedef uint8_t U8;
 typedef uint16_t U16;
 typedef uint32_t U32;
 typedef uint64_t U64;
 
-// SECTON: FLOATS
+// SECTION: FLOATS
 
 typedef float F32;
 typedef double F64;
 
-// SECTON: CHARS
+// SECTION: CHARS
 
 typedef signed char SChar;
 typedef unsigned char UChar;
@@ -29,7 +29,7 @@ typedef unsigned char UChar;
 typedef const char *UTF8;
 typedef const uint16_t *UTF16;
 
-// SECTON: BOOLS
+// SECTION: BOOLS
 
 #define BOOL_TO_STR(value) ((value) ? "true" : "false")
 #ifndef __cplusplus
@@ -41,7 +41,7 @@ typedef int32_t B32;
 typedef bool B32;
 #endif
 
-// SECTON: STRINGS
+// SECTION: STRINGS
 
 typedef struct Str8 Str8;
 

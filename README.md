@@ -28,6 +28,7 @@ Native Windows OpenGL renderer prototype written in C with the goal of expanding
 
 ### Medium-Term Goals
 
+- Software rendering path
 - Direct3D 12 backend
 - Runtime asset browser/loader
 - Optimization experiments: profiling, culling, SIMD, multithreading, etc
