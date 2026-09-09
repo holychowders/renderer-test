@@ -3,25 +3,6 @@
 
 ////////////////////////////////////////////////////////////////////////// SECTION: MISC
 
-#define KILOBYTES_TO_BYTES(count) ((count) * (uint64_t)1024)
-#define MEGABYTES_TO_BYTES(count) (KILOBYTES_TO_BYTES(count) * 1024)
-#define GIGABYTES_TO_BYTES(count) (MEGABYTES_TO_BYTES(count) * 1024)
-#define TERABYTES_TO_BYTES(count) (GIGABYTES_TO_BYTES(count) * 1024)
-
-#define RET_IF_EQ(expr, eq)                                                                                                                          \
-    do {                                                                                                                                             \
-        if ((expr) == (eq)) return eq;                                                                                                               \
-    } while (0)
-#define RET_IF_0(expr) RET_IF_EQ((expr), 0)
-
-#if defined(__MSC_VER)
-    #define INTRIN_ALLOCA(size) _alloca(size)
-#elif defined(__clang__) || defined(__GNUC__)
-    #define INTRIN_ALLOCA(size) __builtin_alloca(size)
-#else
-    #error "Compiler intrinsic for alloca unavailable."
-#endif
-
 #if 0
     #ifdef __clang__
         #define dll_export __declspec(dllexport)
@@ -30,14 +11,6 @@
     #else
     #endif
 #endif
-
-/// Returns new length of passed string
-static inline size_t str_trim_trailing_newline(char *str, size_t len) {
-    while (len > 0 && (str[len - 1] == '\r' || str[len - 1] == '\n')) {
-        str[--len] = '\0';
-    }
-    return len;
-}
 
 ////////////////////////////////////////////////////////////////////////// SECTION: WIN32
 
@@ -309,9 +282,9 @@ void win32gl_shutdown(Win32GL_InitInfo init_info) {
     }
 }
 
-GLuint win32gl_prg_create(void) {
-    char *vs_src = win32_prg_src_load("assets/shaders/vertex.glsl");
-    char *fs_src = win32_prg_src_load("assets/shaders/fragment.glsl");
+GLuint win32gl_prg_create(const char *fpath_vertex, const char *fpath_fragment) {
+    char *vs_src = win32_prg_src_load(fpath_vertex);
+    char *fs_src = win32_prg_src_load(fpath_fragment);
     if (!vs_src || !fs_src) { return (GLuint){ 0 }; }
     GLuint prg = gl_prg_create(vs_src, fs_src); // TODO: Pass a vector of shader sources to support different shader types?
     free(vs_src);

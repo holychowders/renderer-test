@@ -103,15 +103,15 @@ void gl_vao_draw(GL_VAOInfo vao_info, GLuint prg, F32 *u_color) {
     //if (!shader_bind(shader.prg)) { return; }
 
     // FIXME: use the appropriate texture unit for each mesh
-    //if (shader.ulocs.contains("u_texunit")) {
-    //    GL(glUniform1i(shader.ulocs["u_texunit"], TEXTURE_UNIT_CAT_BASE_COLOR));
+    //if (shader.u_locs.contains("u_texunit")) {
+    //    GL(glUniform1i(shader.u_locs["u_texunit"], TEXTURE_UNIT_CAT_BASE_COLOR));
     //}
 
     //glm::mat4 u_mvp = calculate_mvp(transform, fctx.view_matrix, fctx.proj_matrix);
-    //GL(glUniformMatrix4fv(shader.ulocs["u_mvp"], 1, GL_FALSE, &u_mvp[0][0]));
+    //GL(glUniformMatrix4fv(shader.u_locs["u_mvp"], 1, GL_FALSE, &u_mvp[0][0]));
 
     // This should be cached
-    //GL(glUniform4f(gl_prg_get_uloc(prg, "u_color"), u_color[0], u_color[1], u_color[2], u_color[3]));
+    //GL(glUniform4f(gl_prg_get_u_loc(prg, "u_color"), u_color[0], u_color[1], u_color[2], u_color[3]));
 
     gl_vao_bind(vao_info);
     GL(glDrawElements(GL_TRIANGLES, vao_info.index_count, GL_UNSIGNED_INT, NULL));
@@ -119,31 +119,44 @@ void gl_vao_draw(GL_VAOInfo vao_info, GLuint prg, F32 *u_color) {
 
 ////////////////////////////////////////////////////////////////////////// SECTION: PRG (SHADERS)
 
-void gl_prg_set_1i(GLuint prg, const char *u_name, GLint v) {
-    // TODO: This should check a cache of u_locs first, probably stored in a shader struct passed in
-    GLint u_loc = gl_prg_get_uloc(prg, u_name);
+/// Returns -1 if uniform location not found
+inline GLint gl_prg_get_u_loc_cached(GL_Program prg, const char *name) {
+    for (U32 u_idx = 0; u_idx < prg.u_count; u_idx++) {
+        GL_Uniform u_loc = prg.u_locs[u_idx];
+        if (STR_EQ(u_loc.name, name)) { return u_loc.loc; }
+    }
+    // TODO: If a uniform were to be added after caching, we should insert it into the cache here
+    fwarn("Failed to find shader program uniform in cache: %s\n      Will try to retrieve directly from shader program", name);
+    return gl_prg_get_u_loc(prg.handle, name);
+}
+
+void gl_prg_set_1i(GL_Program prg, const char *name, GLint v) {
+    GLint u_loc = gl_prg_get_u_loc_cached(prg, name);
     GL(glUniform1i(u_loc, v));
 }
-void gl_prg_set_1f(GLuint prg, const char *u_name, GLfloat v) {
-    // TODO: This should check a cache of u_locs first, probably stored in a shader struct passed in
-    GLint u_loc = gl_prg_get_uloc(prg, u_name);
+void gl_prg_set_1f(GL_Program prg, const char *name, GLfloat v) {
+    GLint u_loc = gl_prg_get_u_loc_cached(prg, name);
     GL(glUniform1f(u_loc, v));
 }
-void gl_prg_set_3f(GLuint prg, const char *u_name, GLfloat v1, GLfloat v2, GLfloat v3) {
-    // TODO: This should check a cache of u_locs first, probably stored in a shader struct passed in
-    GLint u_loc = gl_prg_get_uloc(prg, u_name);
+void gl_prg_set_3f(GL_Program prg, const char *name, GLfloat v1, GLfloat v2, GLfloat v3) {
+    GLint u_loc = gl_prg_get_u_loc_cached(prg, name);
     GL(glUniform3f(u_loc, v1, v2, v3));
 }
 /// Upload multiple Vec3F32s
-void gl_prg_set_vec3fv(GLuint prg, const char *u_name, GLsizei count, Vec3F32 *vecs) {
-    // TODO: This should check a cache of u_locs first, probably stored in a shader struct passed in
-    GLint u_loc = gl_prg_get_uloc(prg, u_name);
+void gl_prg_set_vec3fv(GL_Program prg, const char *name, GLsizei count, Vec3F32 *vecs) {
+    GLint u_loc = gl_prg_get_u_loc_cached(prg, name);
     GL(glUniform3fv(u_loc, count, vecs[0].e));
 }
-void gl_prg_set_mat4fv(GLuint prg, const char *u_name, GLsizei count, GLboolean transpose, Mat4F32 *mats) {
-    // TODO: This should check a cache of u_locs first, probably stored in a shader struct passed in
-    GLint u_loc = gl_prg_get_uloc(prg, u_name);
+/// Upload multiple Mat4F32s
+void gl_prg_set_mat4fv(GL_Program prg, const char *name, GLsizei count, GLboolean transpose, Mat4F32 *mats) {
+    GLint u_loc = gl_prg_get_u_loc_cached(prg, name);
     GL(glUniformMatrix4fv(u_loc, count, transpose, &mats[0].Xx));
+}
+
+void gl_prg_set_1i_loc(GLint loc, GLint v) { GL(glUniform1i(loc, v)); }
+void gl_prg_set_1f_loc(GLint loc, GLfloat v) { GL(glUniform1f(loc, v)); }
+void gl_prg_set_mat4fv_loc(GLint loc, GLsizei count, GLboolean transpose, Mat4F32 *mats) {
+    GL(glUniformMatrix4fv(loc, count, transpose, &mats[0].Xx));
 }
 
 /// Return created shader program object. Return 0 on failure.
@@ -257,7 +270,7 @@ B32 gl_prg_bind(GLuint prg) {
 
 void gl_prg_unbind(void) { GL(glUseProgram(0)); }
 
-GLint gl_prg_get_uloc(GLuint shader_program, const char *name) {
+GLint gl_prg_get_u_loc(GLuint shader_program, const char *name) {
     GL(GLint location = glGetUniformLocation(shader_program, name));
     if (location == -1) { fwarn_re("GL", "Failed to get uniform location: %s", name); }
     return location;

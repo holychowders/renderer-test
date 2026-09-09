@@ -64,6 +64,28 @@ static inline void gl_init(void) {
     GL(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 }
 
+//typedef struct {
+//    const char* name;
+//    const char* fpath;
+//    const char* type;
+//} ShaderSource;
+
+static inline GL_Program gl_prg_make(const char *vs_path, const char *fs_path, const char **u_names, U32 u_count) {
+    GL_Program prg = { 0 };
+    prg.handle = win32gl_prg_create(vs_path, fs_path);
+
+    // TODO: Decide how to handle this. Either make the buffer really large or dynamic.
+    ASSERT_MSG(u_count <= ARRAY_COUNT(prg.u_locs), "Too many uniforms to store");
+
+    for (U32 u_idx = 0; u_idx < u_count; u_idx++) {
+        finfo("Caching uniform location: %s", u_names[u_idx]);
+        prg.u_locs[u_idx] = (GL_Uniform){ .name = u_names[u_idx], .loc = gl_prg_get_u_loc(prg.handle, u_names[u_idx]) };
+    }
+    prg.u_count = u_count;
+
+    return prg;
+}
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
     (void)nShowCmd, (void)lpCmdLine, (void)hPrevInstance;
     Win32GL_InitInfo init_info = win32gl_init(hInstance, g_current_window_width, g_current_window_height);
@@ -98,8 +120,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     // Shaders
     // -------
-    GLuint shader_program = win32gl_prg_create();
-    gl_prg_bind(shader_program);
+    const char *u_names[] = { "u_mvp", "u_color", "u_texunit1", "u_light_ambient_color", "u_light_ambient_intensity" };
+    GL_Program prg = gl_prg_make("assets/shaders/vertex.glsl", "assets/shaders/fragment.glsl", u_names, ARRAY_COUNT(u_names));
+    gl_prg_bind(prg.handle);
+
+    // Get Hot Shader Uniforms
+    // -----------------------
+    GLint u_mvp_loc = gl_prg_get_u_loc_cached(prg, "u_mvp");
+    GLint u_light_ambient_intensity_loc = gl_prg_get_u_loc_cached(prg, "u_light_ambient_intensity");
 
     // Shared Transforms
     // -----------------
@@ -109,22 +137,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     F32 aspect = (F32)g_current_window_width / (F32)g_current_window_height;
     Mat4F32 proj_matrix = mat4f32_perspective(fov_y_rad, aspect, 0.1F, 100.0F);
 
-    // Shader Uniforms
-    // ---------------
-    // u_color
+    // Set Shader Uniforms
+    // -------------------
     F32 u_color[] = { 1.0F, 0.25F, 1.25F, 1.0F };
-
-    // Uniform Locations (TODO: Cache inside of shader struct
-    //GLint u_texunit1_loc = gl_prg_get_uloc(shader_program, "u_texunit1");
-    //GLint u_mvp_loc = gl_prg_get_uloc(shader_program, "u_mvp");
-
-    //GLint u_light_ambient_color_loc = gl_prg_get_uloc(shader_program, "u_light_ambient_color");
-    //GLint u_light_ambient_intensity_loc = gl_prg_get_uloc(shader_program, "u_light_ambient_intensity");
-
-    // Set Uniforms
-    gl_prg_set_1i(shader_program, "u_texunit1", 0);
-    gl_prg_set_3f(shader_program, "u_light_ambient_color", 1.0F, 1.0F, 1.0F);
-    gl_prg_set_1f(shader_program, "u_light_ambient_intensity", 0.0F);
+    gl_prg_set_1i(prg, "u_texunit1", 0);
+    gl_prg_set_3f(prg, "u_light_ambient_color", 1.0F, 1.0F, 1.0F);
 
     S32 exit_code = 0;
     while (g_running) {
@@ -160,8 +177,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         ASSERT(mat4f32_look_at(&view_matrix, (Vec3F32){ camx, 0, camz }, (Vec3F32){ 0 }, (Vec3F32){ 0, 1, 0 }));
         //view_matrix = mat4f32_trans(mat4f32_identity(), (Vec3F32){ 0, 0, -5 });
 
-        gl_prg_set_1f(shader_program, "u_light_ambient_intensity", absf32(sinf32(timer)));
-
+        gl_prg_set_1f_loc(u_light_ambient_intensity_loc, absf32(sinf32(timer)));
         Mat4F32 u_mvp = mat4f32_identity();
         for (S32 i = -50; i < 60; i++) {
             for (S32 j = -30; j < 40; j++) {
@@ -169,8 +185,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 sample_transform.pos.y = (F32)j;
                 sample_transform.pos.z = -(F32)j;
                 u_mvp = calculate_mvp(sample_transform, view_matrix, proj_matrix);
-                gl_prg_set_mat4fv(shader_program, "u_mvp", 1, GL_TRUE, &u_mvp);
-                gl_vao_draw(sample_vao_info, shader_program, u_color);
+                gl_prg_set_mat4fv_loc(u_mvp_loc, 1, GL_TRUE, &u_mvp);
+                gl_vao_draw(sample_vao_info, prg.handle, u_color);
             }
         }
 

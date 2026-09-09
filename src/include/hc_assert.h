@@ -20,28 +20,42 @@
     #endif
 #endif
 
+#if 0
+    #ifdef __FILE_NAME__
+        #define FILE_NAME_ELSE_PATH __FILE_NAME__
+    #else
+        #define FILE_NAME_ELSE_PATH __FILE__
+    #endif
+#endif
+
 // ASSERT()
 #define ASSERT(expr)                                                                                                                                 \
     do {                                                                                                                                             \
         if (!(expr)) {                                                                                                                               \
-            ERROR_RE_DETAILED("ASSERT", #expr);                                                                                                      \
-            /*fprintf(stderr, "ASRT [%s|L%d|%s]: `%s` (full path: %s)\n", __FILE_NAME__, __LINE__, __FUNCTION__, #expr, __FILE__);*/                 \
+            fprintf(stderr, "ASRT: %s\n      Location: %s, line %d, function %s (%s)", (#expr), __FILE_NAME__, __LINE__, __FUNCTION__, __FILE__);    \
             DEBUG_BREAK();                                                                                                                           \
         }                                                                                                                                            \
     } while (0)
 
-// ASSERT_MSG()
+// ASSERT_MSG() - Raise with an additional message
 #define ASSERT_MSG(expr, msg)                                                                                                                        \
     do {                                                                                                                                             \
         if (!(expr)) {                                                                                                                               \
-            ERROR_RE_DETAILED("ASSERT", (msg));                                                                                                      \
+            fprintf(stderr,                                                                                                                          \
+                    "ASRT: %s\n      Failure: %s\n      Location: %s, line %d, function %s (%s)",                                                    \
+                    (msg),                                                                                                                           \
+                    (#expr),                                                                                                                         \
+                    __FILE_NAME__,                                                                                                                   \
+                    __LINE__,                                                                                                                        \
+                    __FUNCTION__,                                                                                                                    \
+                    __FILE__);                                                                                                                       \
             DEBUG_BREAK();                                                                                                                           \
         }                                                                                                                                            \
     } while (0)
 
-// ASSERT_RAISE() - Raise on the expression without actually evaluating it
-#define ASSERT_RAISE(expr)                                                                                                                           \
+// ASSERT_MSG() - Raise with no expression and just a message
+#define ASSERT_RAISE(msg)                                                                                                                            \
     do {                                                                                                                                             \
-        ERROR_RE_DETAILED("ASSERT", #expr);                                                                                                          \
+        fprintf(stderr, "ASRT: %s\n      Location: %s, line %d, function %s (%s)", (msg), __FILE_NAME__, __LINE__, __FUNCTION__, __FILE__);          \
         DEBUG_BREAK();                                                                                                                               \
     } while (0)
