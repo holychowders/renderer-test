@@ -119,6 +119,33 @@ void gl_vao_draw(GL_VAOInfo vao_info, GLuint prg, F32 *u_color) {
 
 ////////////////////////////////////////////////////////////////////////// SECTION: PRG (SHADERS)
 
+void gl_prg_set_1i(GLuint prg, const char *u_name, GLint v) {
+    // TODO: This should check a cache of u_locs first, probably stored in a shader struct passed in
+    GLint u_loc = gl_prg_get_uloc(prg, u_name);
+    GL(glUniform1i(u_loc, v));
+}
+void gl_prg_set_1f(GLuint prg, const char *u_name, GLfloat v) {
+    // TODO: This should check a cache of u_locs first, probably stored in a shader struct passed in
+    GLint u_loc = gl_prg_get_uloc(prg, u_name);
+    GL(glUniform1f(u_loc, v));
+}
+void gl_prg_set_3f(GLuint prg, const char *u_name, GLfloat v1, GLfloat v2, GLfloat v3) {
+    // TODO: This should check a cache of u_locs first, probably stored in a shader struct passed in
+    GLint u_loc = gl_prg_get_uloc(prg, u_name);
+    GL(glUniform3f(u_loc, v1, v2, v3));
+}
+/// Upload multiple Vec3F32s
+void gl_prg_set_vec3fv(GLuint prg, const char *u_name, GLsizei count, Vec3F32 *vecs) {
+    // TODO: This should check a cache of u_locs first, probably stored in a shader struct passed in
+    GLint u_loc = gl_prg_get_uloc(prg, u_name);
+    GL(glUniform3fv(u_loc, count, vecs[0].e));
+}
+void gl_prg_set_mat4fv(GLuint prg, const char *u_name, GLsizei count, GLboolean transpose, Mat4F32 *mats) {
+    // TODO: This should check a cache of u_locs first, probably stored in a shader struct passed in
+    GLint u_loc = gl_prg_get_uloc(prg, u_name);
+    GL(glUniformMatrix4fv(u_loc, count, transpose, &mats[0].Xx));
+}
+
 /// Return created shader program object. Return 0 on failure.
 GLuint gl_prg_create(const char *vs_src, const char *fs_src) {
     // Create Vertex Shader

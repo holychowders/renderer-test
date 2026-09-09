@@ -3,6 +3,7 @@
 #include "hc_log.h"
 #include "hc_assert.h"
 #include "hc_types.h"
+#include "hc_mat.h"
 
 #include <GL/glew.h>
 
@@ -41,6 +42,12 @@ B32 gl_prg_bind(GLuint prg);
 void gl_prg_unbind(void);
 GLint gl_prg_get_uloc(GLuint shader_program, const char *name);
 B32 gl_prg_verify(GLuint prg);
+
+void gl_prg_set_1i(GLuint prg, const char *u_name, GLint v);
+void gl_prg_set_1f(GLuint prg, const char *u_name, GLfloat v);
+void gl_prg_set_3f(GLuint prg, const char *u_name, GLfloat f1, GLfloat f2, GLfloat f3);
+void gl_prg_set_vec3fv(GLuint prg, const char *u_name, GLsizei count, Vec3F32 *vecs);
+void gl_prg_set_mat4fv(GLuint prg, const char *u_name, GLsizei count, GLboolean transpose, Mat4F32 *mats);
 
 ////////////////////////////////////////////////////////////////////////// SECTION: TEXTURES
 

@@ -114,18 +114,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // u_color
     F32 u_color[] = { 1.0F, 0.25F, 1.25F, 1.0F };
 
-    // Uniform Locations
-    GLint u_texunit1_loc = gl_prg_get_uloc(shader_program, "u_texunit1");
-    GLint u_mvp_loc = gl_prg_get_uloc(shader_program, "u_mvp");
+    // Uniform Locations (TODO: Cache inside of shader struct
+    //GLint u_texunit1_loc = gl_prg_get_uloc(shader_program, "u_texunit1");
+    //GLint u_mvp_loc = gl_prg_get_uloc(shader_program, "u_mvp");
 
-    GLint u_light_ambient_color_loc = gl_prg_get_uloc(shader_program, "u_light_ambient_color");
-    GLint u_light_ambient_intensity_loc = gl_prg_get_uloc(shader_program, "u_light_ambient_intensity");
+    //GLint u_light_ambient_color_loc = gl_prg_get_uloc(shader_program, "u_light_ambient_color");
+    //GLint u_light_ambient_intensity_loc = gl_prg_get_uloc(shader_program, "u_light_ambient_intensity");
 
     // Set Uniforms
-    GL(glUniform1i(u_texunit1_loc, 0));
-
-    GL(glUniform3f(u_light_ambient_color_loc, 1.0F, 1.0F, 1.0F));
-    GL(glUniform1f(u_light_ambient_intensity_loc, 0.0F));
+    gl_prg_set_1i(shader_program, "u_texunit1", 0);
+    gl_prg_set_3f(shader_program, "u_light_ambient_color", 1.0F, 1.0F, 1.0F);
+    gl_prg_set_1f(shader_program, "u_light_ambient_intensity", 0.0F);
 
     S32 exit_code = 0;
     while (g_running) {
@@ -161,7 +160,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         ASSERT(mat4f32_look_at(&view_matrix, (Vec3F32){ camx, 0, camz }, (Vec3F32){ 0 }, (Vec3F32){ 0, 1, 0 }));
         //view_matrix = mat4f32_trans(mat4f32_identity(), (Vec3F32){ 0, 0, -5 });
 
-        GL(glUniform1f(u_light_ambient_intensity_loc, absf32(sinf32(timer))));
+        gl_prg_set_1f(shader_program, "u_light_ambient_intensity", absf32(sinf32(timer)));
 
         Mat4F32 u_mvp = mat4f32_identity();
         for (S32 i = -50; i < 60; i++) {
@@ -170,9 +169,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                 sample_transform.pos.y = (F32)j;
                 sample_transform.pos.z = -(F32)j;
                 u_mvp = calculate_mvp(sample_transform, view_matrix, proj_matrix);
-                GL(glUniformMatrix4fv(u_mvp_loc, 1, GL_TRUE, &u_mvp.Xx));
-
-                gl_vao_draw(sample_vao_info, shader_program, u_color); //
+                gl_prg_set_mat4fv(shader_program, "u_mvp", 1, GL_TRUE, &u_mvp);
+                gl_vao_draw(sample_vao_info, shader_program, u_color);
             }
         }
 
