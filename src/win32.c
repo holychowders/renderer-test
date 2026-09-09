@@ -1,39 +1,12 @@
-#include "gl.h"
-
-#include "hc_assert.h"
-#include "hc_mat.h"
-
-#include <Windows.h>
-
-#include <handleapi.h>
+#include "win32.h"
 #include <malloc.h>
 
-////////////////////////////////////////////////////////////////////////// SECTION: FUNCTION POINTERS
-
-typedef BOOL WINAPI FType_wglSwapIntervalEXT(int interval);
-typedef int WINAPI FType_wglGetSwapIntervalEXT(void);
-static FType_wglSwapIntervalEXT *wglSwapIntervalEXT;
-
-////////////////////////////////////////////////////////////////////////// SECTION: CONSTANTS
-
-////////////////////////////////////////////////////////////////////////// SECTION: GLOBALS
-
-static B32 g_running = true;
-static S32 g_current_window_width = 1920;
-static S32 g_current_window_height = 1080;
-
-////////////////////////////////////////////////////////////////////////// SECTION: MACROS
+////////////////////////////////////////////////////////////////////////// SECTION: MISC
 
 #define KILOBYTES_TO_BYTES(count) ((count) * (uint64_t)1024)
 #define MEGABYTES_TO_BYTES(count) (KILOBYTES_TO_BYTES(count) * 1024)
 #define GIGABYTES_TO_BYTES(count) (MEGABYTES_TO_BYTES(count) * 1024)
 #define TERABYTES_TO_BYTES(count) (GIGABYTES_TO_BYTES(count) * 1024)
-
-#define WIN32_INFO(msg) info_re("Win32", (msg))
-#define WIN32_WARN(msg) warn_re("Win32", (msg))
-#define WIN32_ERROR(msg) error_re("Win32", (msg))
-#define WIN32_ERROR_PLATFORM(re, msg, code) ferror_re("Win32", "%s (code %lu)", (msg), (code))
-#define WIN32_ERROR_DETAILED(msg) ERROR_RE_DETAILED("Win32", (msg))
 
 #define RET_IF_EQ(expr, eq)                                                                                                                          \
     do {                                                                                                                                             \
@@ -49,23 +22,14 @@ static S32 g_current_window_height = 1080;
     #error "Compiler intrinsic for alloca unavailable."
 #endif
 
-////////////////////////////////////////////////////////////////////////// SECTION: DATA STRUCTURES
-
-typedef struct Win32GL_InitInfo {
-    B32 success;
-    HWND window_handle;
-    HDC window_dc;
-    HGLRC glrc_handle;
-} Win32GL_InitInfo;
-
-typedef struct Transform {
-    Vec3F32 pos;
-    Vec3F32 scale;
-    Vec3F32 ori;
-    Vec3F32 angvel;
-} Transform;
-
-////////////////////////////////////////////////////////////////////////// SECTION: MISC FUNCTIONS
+#if 0
+    #ifdef __clang__
+        #define dll_export __declspec(dllexport)
+    #elif __GNUC__
+        #define dll_export __attribute__((visibility("default"))
+    #else
+    #endif
+#endif
 
 /// Returns new length of passed string
 static inline size_t str_trim_trailing_newline(char *str, size_t len) {
@@ -75,7 +39,13 @@ static inline size_t str_trim_trailing_newline(char *str, size_t len) {
     return len;
 }
 
-////////////////////////////////////////////////////////////////////////// SECTION: WIN32 FUNCTIONS
+////////////////////////////////////////////////////////////////////////// SECTION: WIN32
+
+#define WIN32_INFO(msg) info_re("Win32", (msg))
+#define WIN32_WARN(msg) warn_re("Win32", (msg))
+#define WIN32_ERROR(msg) error_re("Win32", (msg))
+#define WIN32_ERROR_PLATFORM(re, msg, code) ferror_re("Win32", "%s (code %lu)", (msg), (code))
+#define WIN32_ERROR_DETAILED(msg) ERROR_RE_DETAILED("Win32", (msg))
 
 static inline void win32_get_last_error(char *out_msg, size_t out_len) {
     char *fmt_msg = { 0 };
@@ -193,7 +163,7 @@ static inline LRESULT CALLBACK win32_window_proc(HWND hWnd, UINT uMsg, WPARAM wP
     return result;
 }
 
-static inline HWND win32_create_window(HINSTANCE hInstance) {
+static inline HWND win32_create_window(HINSTANCE hInstance, U32 width, U32 height) {
     WNDCLASSEXA wc = { 0 };
     wc.cbSize = sizeof(WNDCLASSEX);
     wc.style = CS_OWNDC;
@@ -208,11 +178,28 @@ static inline HWND win32_create_window(HINSTANCE hInstance) {
                                          WS_OVERLAPPEDWINDOW, // style
                                          CW_USEDEFAULT, CW_USEDEFAULT, // x, y pos
                                          //CW_USEDEFAULT, CW_USEDEFAULT, // width, height
-                                         g_current_window_width, g_current_window_height, // width, height
+                                         (S32)width, (S32)height, // width, height
                                          NULL, NULL, hInstance, NULL // misc
     ); // clang-format on
 
     return window_handle;
+}
+
+////////////////////////////////////////////////////////////////////////// SECTION: WIN32-GL
+
+// WGL function pointers
+typedef BOOL WINAPI FType_wglSwapIntervalEXT(int interval);
+typedef int WINAPI FType_wglGetSwapIntervalEXT(void);
+static FType_wglSwapIntervalEXT *wglSwapIntervalEXT;
+
+static inline B32 glew_init(void) {
+    GLenum err = glewInit();
+    if (err != GLEW_OK) {
+        error_re("GL/GLEW", (const char *)glewGetErrorString(err));
+        return false;
+    }
+    finfo_re("Renderer/GL/GLEW", "Version %s", (const char *)glewGetString(GLEW_VERSION));
+    return true;
 }
 
 static inline B32 win32gl_set_pixel_format(HDC window_dc) {
@@ -239,12 +226,12 @@ static inline B32 win32gl_set_pixel_format(HDC window_dc) {
     return success;
 }
 
-static inline Win32GL_InitInfo win32gl_init(HINSTANCE hInstance) {
+Win32GL_InitInfo win32gl_init(HINSTANCE hInstance, U32 window_width, U32 window_height) {
     Win32GL_InitInfo init_info = { 0 };
 
     // Create window
     // -------------
-    HWND window_handle = win32_create_window(hInstance);
+    HWND window_handle = win32_create_window(hInstance, window_width, window_height);
     if (!window_handle) {
         WIN32_ERROR_DETAILED("Failed to create window");
         return init_info;
@@ -285,11 +272,7 @@ static inline Win32GL_InitInfo win32gl_init(HINSTANCE hInstance) {
 
     // Initialize OpenGL
     // -----------------
-    if (!gl_glew_init()) { return init_info; }
-    GL(glEnable(GL_DEPTH_TEST));
-    GL(glEnable(GL_BLEND));
-    GL(glDepthFunc(GL_LESS));
-    GL(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    if (!glew_init()) { return init_info; }
 
     //const GLubyte *extensions = glGetString(GL_EXTENSIONS);
     //const GLubyte *extensions = glGetStringi(count, GL_EXTENSIONS);
@@ -310,7 +293,7 @@ static inline Win32GL_InitInfo win32gl_init(HINSTANCE hInstance) {
     return init_info;
 }
 
-static inline void win32gl_shutdown(Win32GL_InitInfo init_info) {
+void win32gl_shutdown(Win32GL_InitInfo init_info) {
     wglMakeCurrent(NULL, NULL);
     if (init_info.glrc_handle) {
         if (wglDeleteContext(init_info.glrc_handle)) { init_info.glrc_handle = NULL; }
@@ -326,7 +309,7 @@ static inline void win32gl_shutdown(Win32GL_InitInfo init_info) {
     }
 }
 
-static inline GLuint win32gl_prg_create(void) {
+GLuint win32gl_prg_create(void) {
     char *vs_src = win32_prg_src_load("assets/shaders/vertex.glsl");
     char *fs_src = win32_prg_src_load("assets/shaders/fragment.glsl");
     if (!vs_src || !fs_src) { return (GLuint){ 0 }; }
@@ -335,209 +318,3 @@ static inline GLuint win32gl_prg_create(void) {
     free(fs_src);
     return prg;
 }
-
-static inline Mat4F32 calculate_mvp(const Transform transform, const Mat4F32 view, const Mat4F32 projection) {
-    Mat4F32 model = mat4f32_identity();
-    model = mat4f32_trans(model, transform.pos);
-    model = mat4f32_rot_xyz(model, transform.ori);
-    model = mat4f32_scale(model, transform.scale);
-    return mat4f32_mul(projection, mat4f32_mul(view, model));
-}
-
-static inline void test_mat(void) {
-    // Original Matrix
-    // ---------------
-    // [ 1 2 ]
-    // [ 3 4 ]
-    Mat2F32 mat1 = { .e = { 1, 2, 3, 4 } }; // store it internally as either row or column major, but init is the same
-
-    // Multiply by Identity Matrix and Verify
-    // --------------------------------------
-    // [ 1 0 ]
-    // [ 0 1 ]
-    Mat2F32 res1 = mat2f32_mul(mat1, mat2f32_identity());
-    ASSERT(mat2f32_eq(res1, mat1));
-
-    // Multiply by Another Matrix and Verify
-    // -------------------------------------
-    // [ 5 6 ]
-    // [ 7 8 ]
-    Mat2F32 res2 = mat2f32_mul(mat1, (Mat2F32){ 5, 6, 7, 8 });
-    ASSERT(mat2f32_eq(res2, (Mat2F32){ 19, 22, 43, 50 }));
-
-    // Alternative Forms of Comparison to Consider
-    // -------------------------------------------
-    //                    row1    row2
-    //ASSERT(res2.e == { 19, 22, 43, 50 });
-    //ASSERT(mat2f32_eq(res2, res2_expected));
-    //ASSERT(arreq(res2.e, res2_expected.e));
-    //ASSERT(MAT_EQ(res2, res2_expected));
-    //ASSERT(mat_eq(res2, res2_expected));
-}
-
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
-    (void)nShowCmd, (void)lpCmdLine, (void)hPrevInstance;
-    Win32GL_InitInfo init_info = win32gl_init(hInstance);
-    if (!init_info.success) {
-        win32gl_shutdown(init_info);
-        return -1;
-    }
-
-    test_mat();
-
-    // Sample Geometry and Transform
-    // -----------------------------
-    const F32 sample_vb[] = {
-        /*pos*/ -0.5F, -0.5F, 0.0F, /*tex*/ 0.0F, 0.0F, // 0 bottom-left
-        /*pos*/ +0.5F, -0.5F, 0.0F, /*tex*/ 1.0F, 0.0F, // 1 bottom-right
-        /*pos*/ +0.5F, +0.5F, 0.0F, /*tex*/ 1.0F, 1.0F, // 2 top-right
-        /*pos*/ -0.5F, +0.5F, 0.0F, /*tex*/ 0.0F, 1.0F, // 3 top-left
-    };
-    const U32 sample_ib[] = { 0, 1, 2, 0, 2, 3 };
-    GL_VAOInfo sample_vao_info = gl_vao_create(sample_vb, sample_ib, sizeof(sample_vb), sizeof(sample_ib));
-
-    Transform sample_transform = { .pos = (Vec3F32){ 0, 0, 0 },
-                                   .scale = (Vec3F32){ 1, 1, 1 },
-                                   .ori = (Vec3F32){ 0, 0, 0 },
-                                   .angvel = (Vec3F32){ 0, 0, 0 } };
-
-    // Textures
-    // --------
-    GLuint sample_texture = gl_texture_from_image("assets/textures/Faces for a Dying Land/creep13.png");
-    GL(glBindTextureUnit(0, sample_texture));
-
-    // Shaders
-    // -------
-    GLuint shader_program = win32gl_prg_create();
-    gl_prg_bind(shader_program);
-
-    // Shared Transforms
-    // -----------------
-    //Mat4F32 view_matrix = mat4f32_trans(mat4f32_identity(), (Vec3F32){ 0, 0, -3 });
-    Mat4F32 view_matrix = mat4f32_identity();
-    F32 fov_y_rad = deg_to_rad(45);
-    F32 aspect = (F32)g_current_window_width / (F32)g_current_window_height;
-    Mat4F32 proj_matrix = mat4f32_perspective(fov_y_rad, aspect, 0.1F, 100.0F);
-
-    // Shader Uniforms
-    // ---------------
-    // u_color
-    F32 u_color[] = { 1.0F, 0.25F, 1.25F, 1.0F };
-
-    // Uniform Locations
-    GLint u_texunit1_loc = gl_prg_get_uloc(shader_program, "u_texunit1");
-    GLint u_mvp_loc = gl_prg_get_uloc(shader_program, "u_mvp");
-
-    GLint u_light_ambient_color_loc = gl_prg_get_uloc(shader_program, "u_light_ambient_color");
-    GLint u_light_ambient_intensity_loc = gl_prg_get_uloc(shader_program, "u_light_ambient_intensity");
-
-    // Set Uniforms
-    GL(glUniform1i(u_texunit1_loc, 0));
-
-    GL(glUniform3f(u_light_ambient_color_loc, 1.0F, 1.0F, 1.0F));
-    GL(glUniform1f(u_light_ambient_intensity_loc, 0.0F));
-
-    S32 exit_code = 0;
-    while (g_running) {
-        MSG msg = { 0 };
-        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-            if (msg.message == WM_QUIT) {
-                g_running = false;
-                exit_code = (S32)msg.wParam;
-                break;
-            }
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
-        if (!g_running) { break; }
-
-        // Timer (temp)
-        // -----
-        static F32 timer = 0.F;
-        //timer -= 0.015F;
-        timer -= 0.0066F;
-        //sample_transform.pos.x = timer/8;
-        //sample_transform.ori.x = timer;
-
-        // MVP
-        // ---
-
-        gl_clear_background(0.1F, 0.1F, 0.1F, 1); //
-        // Look at
-        static F32 orbit_radius = 5.0F;
-        F32 camx = sinf32(timer) * orbit_radius;
-        F32 camz = cosf32(timer) * orbit_radius;
-
-        ASSERT(mat4f32_look_at(&view_matrix, (Vec3F32){ camx, 0, camz }, (Vec3F32){ 0 }, (Vec3F32){ 0, 1, 0 }));
-        //view_matrix = mat4f32_trans(mat4f32_identity(), (Vec3F32){ 0, 0, -5 });
-
-        GL(glUniform1f(u_light_ambient_intensity_loc, absf32(sinf32(timer))));
-
-        Mat4F32 u_mvp = mat4f32_identity();
-        for (S32 i = -50; i < 60; i++) {
-            for (S32 j = -30; j < 40; j++) {
-                sample_transform.pos.x = (F32)i;
-                sample_transform.pos.y = (F32)j;
-                sample_transform.pos.z = -(F32)j;
-                u_mvp = calculate_mvp(sample_transform, view_matrix, proj_matrix);
-                GL(glUniformMatrix4fv(u_mvp_loc, 1, GL_TRUE, &u_mvp.Xx));
-
-                gl_vao_draw(sample_vao_info, shader_program, u_color); //
-            }
-        }
-
-        // Drawing
-        // -------
-        //gl_clear_background(0.1F, 0.1F, 0.1F, 1);
-        //gl_vao_draw(sample_vao_info, shader_program, u_color);
-
-        // End of Frame
-        // ------------
-        SwapBuffers(init_info.window_dc);
-    }
-
-    gl_vao_delete(&sample_vao_info);
-    win32gl_shutdown(init_info);
-
-    return exit_code;
-}
-
-#if 0
-    #ifdef __clang__
-        #define dll_export __declspec(dllexport)
-    #elif __GNUC__
-        #define dll_export __attribute__((visibility("default"))
-    #else
-    #endif
-#endif
-
-#if 0
-typedef struct Image {
-    U32 width;
-    U32 height;
-    U32 channels;
-    U32 bytes_per_pixel;
-    void *pixels;
-} Image;
-
-static inline Image image_load(const char *fpath) {
-    Image result = { 0 };
-
-    S32 width = { 0 }, height = { 0 }, channels = { 0 };
-    stbi_uc *image = stbi_load(fpath, &width, &height, &channels, 4);
-
-    result.width = (U32)width;
-    result.height = (U32)height;
-    result.channels = (U32)channels;
-    //result.bytes_per_pixel = 8; TODO
-    result.pixels = image;
-
-    //stbi_image_free(image);
-
-    return result;
-}
-static inline void image_free(Image *image) {
-    stbi_image_free(image->pixels);
-    *image = (Image){ 0 };
-}
-#endif

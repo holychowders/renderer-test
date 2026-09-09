@@ -5,7 +5,6 @@
 #include "hc_types.h"
 
 #include <GL/glew.h>
-//#include <GL/gl.h>
 
 ////////////////////////////////////////////////////////////////////////// SECTION: MISC
 
@@ -17,8 +16,6 @@ B32 gl_check_errors(void);
 void gl_clear_errors(void);
 
 void gl_clear_background(F32 r, F32 g, F32 b, F32 a);
-
-B32 gl_glew_init(void);
 
 ////////////////////////////////////////////////////////////////////////// SECTION: VAO (VERTEX ARRAY OBJECT)
 

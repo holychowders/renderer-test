@@ -8,7 +8,7 @@ set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # EXECUTABLES
-add_executable(renderer-test WIN32 src/renderer_win32_gl.c src/gl.c)
+add_executable(renderer-test WIN32 src/demo1.c src/gl.c src/win32.c)
 
 # SOURCE LIBRARIES
 add_library(glew STATIC vendor/glew-2.3.1-src-release/src/glew.c)
@@ -39,7 +39,6 @@ target_include_directories(renderer-test PRIVATE src/include/)
 target_include_directories(renderer-test SYSTEM PRIVATE
     vendor/stb-src-master-2026-05-04/
     vendor/glew-2.3.1-src-release/include/
-    vendor/glm-1.0.3-src-release/
     vendor/imgui-1.92.7-src-release/
     vendor/imgui-1.92.7-src-release/backends/
 )

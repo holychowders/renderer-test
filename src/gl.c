@@ -1,8 +1,5 @@
 #include "gl.h"
 
-#include <GL/glew.h>
-//#include <GL/gl.h>
-
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
@@ -41,16 +38,6 @@ void gl_clear_background(F32 r, F32 g, F32 b, F32 a) {
     //GL(glViewport(0, 0, window_width, window_height));
     GL(glClearColor(r, g, b, a));
     GL(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
-}
-
-B32 gl_glew_init(void) {
-    GLenum err = glewInit();
-    if (err != GLEW_OK) {
-        error_re("GL/GLEW", (const char *)glewGetErrorString(err));
-        return false;
-    }
-    finfo_re("Renderer/GL/GLEW", "Version %s", (const char *)glewGetString(GLEW_VERSION));
-    return true;
 }
 
 ////////////////////////////////////////////////////////////////////////// SECTION: VAO (VERTEX ARRAY OBJECT)
@@ -291,21 +278,3 @@ void gl_texture_delete(GLuint *texture) {
     GL(glDeleteTextures(1, texture));
     *texture = 0;
 }
-
-////////////////////////////////////////////////////////////////////////// SECTION: MISC
-
-#if 0
-    #define GL_INFO(msg) info_re("Renderer/GL", (msg))
-    #define GL_WARN(msg) warn_re("Renderer/GL", (msg))
-    #define GL_ERROR(msg) error_re("Renderer/GL", (msg))
-    #define GL_ERROR_DETAILED(msg) ERROR_RE_DETAILED("Renderer/GL", (msg))
-#endif
-
-#if 0
-    #define GL(gl_operation)                                                                                                                         \
-        do {                                                                                                                                         \
-            gl_clear_errors();                                                                                                                       \
-            gl_operation;                                                                                                                            \
-            ASSERT_MSG(!gl_check_errors(), #gl_operation);                                                                                           \
-        } while (0)
-#endif
