@@ -143,6 +143,42 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     gl_prg_set_1i(prg, "u_texunit1", 0);
     gl_prg_set_3f(prg, "u_light_ambient_color", 1.0F, 1.0F, 1.0F);
 
+    // Create Instance Transforms
+    // --------------------------
+    Vec3F32 instance_transforms[1000] = { 0 };
+
+    U32 instance_count = ARRAY_COUNT(instance_transforms);
+    U32 column_count = instance_count / 30;
+    U32 row_count = instance_count / column_count;
+    F32 spacing = 0.75F;
+
+    for (U32 row = 0; row < row_count; row++) {
+        for (U32 column = 0; column < column_count; column++) {
+            U32 index = (row * column_count) + column;
+            instance_transforms[index].x = ((F32)column - ((F32)(column_count - 1) * 0.5F)) * spacing;
+            instance_transforms[index].y = ((F32)row - ((F32)(row_count - 1) * 0.5F)) * spacing;
+            instance_transforms[index].z = 10.0F * sinf32((F32)index);
+        }
+    }
+
+    // Create Instance Buffer
+    // ----------------------
+    GL(glBindVertexArray(sample_vao_info.vao)); // make sure the instance buffer will be attached to our VAO
+
+    U32 instance_buffer = { 0 };
+    GL(glGenBuffers(1, &instance_buffer));
+    GL(glBindBuffer(GL_ARRAY_BUFFER, instance_buffer));
+    GL(glBufferData(GL_ARRAY_BUFFER, sizeof(instance_transforms), instance_transforms, GL_STATIC_DRAW));
+
+    GL(glEnableVertexAttribArray(GL_ATTR_LOC_INSTANCE_POSITION)); // NOTE: This assumes there were only two attribute arrays enabled before it
+    GL(glVertexAttribPointer(GL_ATTR_LOC_INSTANCE_POSITION,
+                             3,
+                             GL_FLOAT,
+                             GL_FALSE,
+                             sizeof(instance_transforms[0]),
+                             (void *)(0)));                      // NOLINT(modernize-use-nullptr)
+    GL(glVertexAttribDivisor(GL_ATTR_LOC_INSTANCE_POSITION, 1)); // attribute 2 advances onces per instance, not vertex
+
     S32 exit_code = 0;
     while (g_running) {
         MSG msg = { 0 };
@@ -157,43 +193,30 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
         if (!g_running) { break; }
 
-        // Timer (temp)
+        // Timer
         // -----
-        static F32 timer = 0.F;
-        //timer -= 0.015F;
+        static F32 timer = 0.0F;
         timer -= 0.0066F;
-        //sample_transform.pos.x = timer/8;
-        //sample_transform.ori.x = timer;
 
         // MVP
         // ---
-
-        gl_clear_background(0.1F, 0.1F, 0.1F, 1); //
-        // Look at
-        static F32 orbit_radius = 5.0F;
+        static F32 orbit_radius = 15.0F;
         F32 camx = sinf32(timer) * orbit_radius;
         F32 camz = cosf32(timer) * orbit_radius;
 
         ASSERT(mat4f32_look_at(&view_matrix, (Vec3F32){ camx, 0, camz }, (Vec3F32){ 0 }, (Vec3F32){ 0, 1, 0 }));
-        //view_matrix = mat4f32_trans(mat4f32_identity(), (Vec3F32){ 0, 0, -5 });
+        Mat4F32 u_mvp = calculate_mvp(sample_transform, view_matrix, proj_matrix);
+        gl_prg_set_mat4fv_loc(u_mvp_loc, 1, GL_TRUE, &u_mvp);
 
+        // Lighting
+        // --------
         gl_prg_set_1f_loc(u_light_ambient_intensity_loc, absf32(sinf32(timer)));
-        Mat4F32 u_mvp = mat4f32_identity();
-        for (S32 i = -50; i < 60; i++) {
-            for (S32 j = -30; j < 40; j++) {
-                sample_transform.pos.x = (F32)i;
-                sample_transform.pos.y = (F32)j;
-                sample_transform.pos.z = -(F32)j;
-                u_mvp = calculate_mvp(sample_transform, view_matrix, proj_matrix);
-                gl_prg_set_mat4fv_loc(u_mvp_loc, 1, GL_TRUE, &u_mvp);
-                gl_vao_draw(sample_vao_info, prg.handle, u_color);
-            }
-        }
 
         // Drawing
         // -------
-        //gl_clear_background(0.1F, 0.1F, 0.1F, 1);
+        gl_clear_background(0.1F, 0.1F, 0.1F, 1);
         //gl_vao_draw(sample_vao_info, shader_program, u_color);
+        GL(glDrawElementsInstanced(GL_TRIANGLES, sample_vao_info.index_count, GL_UNSIGNED_INT, (void *)(0), instance_count));
 
         // End of Frame
         // ------------

@@ -64,6 +64,23 @@ void gl_prg_set_1i_loc(GLint loc, GLint v);
 void gl_prg_set_1f_loc(GLint loc, GLfloat v);
 void gl_prg_set_mat4fv_loc(GLint loc, GLsizei count, GLboolean transpose, Mat4F32 *mats);
 
+// Lower-Level GL Abstractions
+// ---------------------------
+
+/// Use as locations in shaders
+typedef enum {
+    // Basic attributes
+    GL_ATTR_LOC_POSITION = 0,
+    GL_ATTR_LOC_NORMAL = 1,
+    GL_ATTR_LOC_TANGENT = 2,
+    GL_ATTR_LOC_TEXCOORD = 3,
+    GL_ATTR_LOC_COLOR = 4,
+
+    // Instancing
+    GL_ATTR_LOC_INSTANCE_POSITION = 5,
+    GL_ATTR_LOC_INSTANCE_LIGHT = 6,
+} GL_AttributeLocation;
+
 // Lower-Level GL Functions
 // ------------------------
 GLuint gl_prg_create(const char *vs_src, const char *fs_src);

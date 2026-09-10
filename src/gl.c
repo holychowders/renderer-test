@@ -60,11 +60,17 @@ GL_VAOInfo gl_vao_create(const F32 *vb, const U32 *ib, size_t vb_size, size_t ib
     // Define Vertex Attributes
     // ------------------------
     // Position XYZ
-    GL(glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (void *)0)); // NOLINT(modernize-use-nullptr)
+    GL(glVertexAttribPointer(GL_ATTR_LOC_POSITION, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (void *)0)); // NOLINT(modernize-use-nullptr)
+    GL(glEnableVertexAttribArray(GL_ATTR_LOC_POSITION));
+
     // Texcoord UV
-    GL(glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (void *)(3 * sizeof(GLfloat)))); // NOLINT(modernize-use-nullptr)
-    GL(glEnableVertexAttribArray(0));
-    GL(glEnableVertexAttribArray(1));
+    GL(glVertexAttribPointer(GL_ATTR_LOC_TEXCOORD,
+                             2,
+                             GL_FLOAT,
+                             GL_FALSE,
+                             5 * sizeof(GLfloat),
+                             (void *)(3 * sizeof(GLfloat)))); // NOLINT(modernize-use-nullptr)
+    GL(glEnableVertexAttribArray(GL_ATTR_LOC_TEXCOORD));
 
     // Create IBO
     // ----------
@@ -98,6 +104,8 @@ static void gl_vao_bind(GL_VAOInfo vao_info) {
     GL(glBindBuffer(GL_ARRAY_BUFFER, vao_info.vbo));
     GL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vao_info.ibo));
 }
+
+void gl_vao_draw_instanced(GL_VAOInfo vao_info) {}
 
 void gl_vao_draw(GL_VAOInfo vao_info, GLuint prg, F32 *u_color) {
     //if (!shader_bind(shader.prg)) { return; }

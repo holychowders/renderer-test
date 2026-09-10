@@ -3,7 +3,6 @@
 in vec2 v_tex_uv;
 
 uniform sampler2D u_texunit1;
-
 uniform vec3 u_light_ambient_color;
 uniform float u_light_ambient_intensity;
 
