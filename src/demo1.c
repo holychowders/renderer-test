@@ -1,5 +1,4 @@
-#include "gl.h"
-#include "win32.h"
+#include "renderer_gl.h"
 
 #include "hc_mat.h"
 
@@ -57,34 +56,11 @@ static inline void test_mat(void) {
     //ASSERT(mat_eq(res2, res2_expected));
 }
 
-static inline void gl_init(void) {
-    GL(glEnable(GL_DEPTH_TEST));
-    GL(glEnable(GL_BLEND));
-    GL(glDepthFunc(GL_LESS));
-    GL(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-}
-
 //typedef struct {
 //    const char* name;
 //    const char* fpath;
 //    const char* type;
 //} ShaderSource;
-
-static inline GL_Program gl_prg_make(const char *vs_path, const char *fs_path, const char **u_names, U32 u_count) {
-    GL_Program prg = { 0 };
-    prg.handle = win32gl_prg_create(vs_path, fs_path);
-
-    // TODO: Decide how to handle this. Either make the buffer really large or dynamic.
-    ASSERT_MSG(u_count <= ARRAY_COUNT(prg.u_locs), "Too many uniforms to store");
-
-    for (U32 u_idx = 0; u_idx < u_count; u_idx++) {
-        finfo("Caching uniform location: %s", u_names[u_idx]);
-        prg.u_locs[u_idx] = (GL_Uniform){ .name = u_names[u_idx], .loc = gl_prg_get_u_loc(prg.handle, u_names[u_idx]) };
-    }
-    prg.u_count = u_count;
-
-    return prg;
-}
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {
     (void)nShowCmd, (void)lpCmdLine, (void)hPrevInstance;
@@ -121,7 +97,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // Shaders
     // -------
     const char *u_names[] = { "u_mvp", "u_color", "u_texunit1", "u_light_ambient_color", "u_light_ambient_intensity" };
-    GL_Program prg = gl_prg_make("assets/shaders/vertex.glsl", "assets/shaders/fragment.glsl", u_names, ARRAY_COUNT(u_names));
+    R_ShaderProgram prg = r_shader_program_create("assets/shaders/vertex.glsl", "assets/shaders/fragment.glsl", u_names, ARRAY_COUNT(u_names));
     gl_prg_bind(prg.handle);
 
     // Get Hot Shader Uniforms
@@ -177,7 +153,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                              GL_FALSE,
                              sizeof(instance_transforms[0]),
                              (void *)(0)));                      // NOLINT(modernize-use-nullptr)
-    GL(glVertexAttribDivisor(GL_ATTR_LOC_INSTANCE_POSITION, 1)); // attribute 2 advances onces per instance, not vertex
+    GL(glVertexAttribDivisor(GL_ATTR_LOC_INSTANCE_POSITION, 1)); // attribute advances onces per instance, not vertex
 
     S32 exit_code = 0;
     while (g_running) {
