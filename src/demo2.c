@@ -31,7 +31,7 @@ int app_main(void) {
     // Shaders
     // -------
     F32 u_color[] = { 1.0F, 0.25F, 1.25F, 1.0F };
-    R_ShaderProgram prg = r_shader_program_create("assets/shaders/vertex.glsl", "assets/shaders/fragment.glsl", NULL, 0);
+    R_ShaderProgram prg = r_shader_program_create("assets/shaders/demo2_vertex.glsl", "assets/shaders/demo2_fragment.glsl", NULL, 0);
     r_shader_program_bind(prg);
 
     S32 exit_code = 0;
