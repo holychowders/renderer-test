@@ -5,7 +5,7 @@ set "SCRIPT_DIR=%~dp0"
 set "PROJECT_ROOT=%SCRIPT_DIR%.."
 
 if not exist "%PROJECT_ROOT%\build\build.ninja" (
-    cmake --preset default
+    cmake --preset debug
     if errorlevel 1 exit /b 1
 )
-cmake --build --preset default
+cmake --build --preset debug

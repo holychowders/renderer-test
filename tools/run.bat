@@ -6,4 +6,4 @@ set "PROJECT_ROOT=%SCRIPT_DIR%.."
 
 call "%SCRIPT_DIR%build.bat"
 if errorlevel 1 exit /b 1
-"%PROJECT_ROOT%\build\renderer.exe"
+"%PROJECT_ROOT%\build\debug\renderer.exe"
