@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 6,
   "configurePresets": [
     {
       "name": "base",
@@ -25,6 +25,16 @@
     {
       "name": "debug",
       "configurePreset": "debug"
+    }
+  ],
+
+  "workflowPresets": [
+    {
+      "name": "debug",
+      "steps": [
+        { "type": "configure", "name": "debug" },
+        { "type": "build",     "name": "debug" }
+      ]
     }
   ]
 }

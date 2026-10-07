@@ -1,4 +1,5 @@
 @echo off
-setlocal EnableExtensions EnableDelayedExpansion
-for /r src %%f in (*.c *.cpp) do set FILES=!FILES! "%%f"
-clang-tidy -p .\build\ %FILES%
+SetLocal EnableDelayedExpansion
+
+For /r src %%f in (*.c *.cpp) Do Set FILES=!FILES! "%%f"
+clang-tidy -p .\build\debug\ %FILES%

@@ -1,11 +1,11 @@
 @echo off
-echo Formatting...
-for %%d in (src) do (
-    echo Formatting in "%%~d"
-    pushd "%%~d" 
-    for /r %%f in (*.c *.cpp *.h *.hpp) do (
-        echo Formatting "%%f"
+Echo Formatting...
+For %%d in (src) do (
+    Echo Formatting in "%%~d"
+    PushD "%%~d" 
+    For /r %%f In (*.c *.cpp *.h *.hpp) Do (
+        Echo Formatting "%%f"
         clang-format -i "%%f"
     )
-    popd
+    PopD
 )

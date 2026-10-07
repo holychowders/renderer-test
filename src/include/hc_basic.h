@@ -3,6 +3,7 @@
 
 #define STR_EQ(str1, str2) strcmp((str1), (str2)) == 0
 #define ARRAY_COUNT(arr) sizeof((arr)) / sizeof((arr)[0])
+#define ARRAY_EQ(arr1, arr2) (memcmp((arr1), (arr2), sizeof((arr1))) == 0)
 
 #define KILOBYTES_TO_BYTES(count) ((count) * (uint64_t)1024)
 #define MEGABYTES_TO_BYTES(count) (KILOBYTES_TO_BYTES(count) * 1024)
