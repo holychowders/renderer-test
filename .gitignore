@@ -1,7 +1,13 @@
-build
-
-Session.vim
+# Files
 notes.md
-*.rdbg
+compile_commands.json
+CMakeUserPresets.json
 
+# Directories
+build/
+
+# Globs
+*.vim
+*.rdbg
+*.raddbg
 

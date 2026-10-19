@@ -41,17 +41,19 @@ typedef union Vec3F32 {
 
 // Arithmetic
 // ----------
-static inline Vec3F32 vec3f32_add(Vec3F32 a, Vec3F32 b) { return (Vec3F32){ a.x + b.x, a.y + b.y, a.z + b.z }; }
-static inline Vec3F32 vec3f32_sub(Vec3F32 a, Vec3F32 b) { return (Vec3F32){ a.x - b.x, a.y - b.y, a.z - b.z }; }
-static inline Vec3F32 vec3f32_scale(Vec3F32 v, F32 s) { return (Vec3F32){ v.x * s, v.y * s, v.z * s }; }
+static inline Vec3F32 vec3f32_add(Vec3F32 a, Vec3F32 b) { return (Vec3F32){ { a.x + b.x, a.y + b.y, a.z + b.z } }; }
+static inline Vec3F32 vec3f32_sub(Vec3F32 a, Vec3F32 b) { return (Vec3F32){ { a.x - b.x, a.y - b.y, a.z - b.z } }; }
+static inline Vec3F32 vec3f32_scale(Vec3F32 v, F32 s) { return (Vec3F32){ { v.x * s, v.y * s, v.z * s } }; }
 
 // Multiplication
 // --------------
 static inline F32 vec3f32_dot(Vec3F32 a, Vec3F32 b) { return (a.x * b.x) + (a.y * b.y) + (a.z * b.z); }
 static inline Vec3F32 vec3f32_cross(Vec3F32 a, Vec3F32 b) {
-    return (Vec3F32){ (a.y * b.z) - (a.z * b.y), //
-                      (a.z * b.x) - (a.x * b.z),
-                      (a.x * b.y) - (a.y * b.x) };
+    return (Vec3F32){ {
+        (a.y * b.z) - (a.z * b.y), //
+        (a.z * b.x) - (a.x * b.z),
+        (a.x * b.y) - (a.y * b.x),
+    } };
 }
 
 // Magnitude/Normalization
@@ -267,12 +269,14 @@ static inline bool mat4f32_look_at(Mat4F32 *out, Vec3F32 eye, Vec3F32 target, Ve
     Vec3F32 u = vec3f32_cross(r, f); // corrected up direction: get the vector perpendicular to the forward and right directions
 
     // Camera-relative view matrix coordinates
-    *out = (Mat4F32){ { // clang-format off
-        r.x,  r.y,  r.z, -vec3f32_dot(r, eye),
-        u.x,  u.y,  u.z, -vec3f32_dot(u, eye),
-       -f.x, -f.y, -f.z,  vec3f32_dot(f, eye),
-        0.0F, 0.0F, 0.0F, 1.0F
-    } }; // clang-format on
+    *out = (Mat4F32){
+        {
+            // clang-format off
+        {  r.x,  r.y,  r.z, -vec3f32_dot(r, eye) },
+        {  u.x,  u.y,  u.z, -vec3f32_dot(u, eye) },
+        { -f.x, -f.y, -f.z,  vec3f32_dot(f, eye) },
+        {  0.0F, 0.0F, 0.0F, 1.0F },
+    }, }; // clang-format on
 
     return true;
 }

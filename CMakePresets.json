@@ -1,22 +1,44 @@
 {
   "version": 6,
+
   "configurePresets": [
     {
-      "name": "base",
+      "name": "base-debug",
       "hidden": true,
       "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "CMAKE_C_COMPILER": "clang",
-        "CMAKE_CXX_COMPILER": "clang++"
+        "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+
+    {
+      "name": "debug",
+      "inherits": "base-debug"
+    },
+    {
+      "name": "cross-linux-debug",
+      "inherits": "base-debug",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Linux",
+        "CMAKE_SYSTEM_PROCESSOR": "x86_64",
+        "CMAKE_C_COMPILER_TARGET": "x86_64-unknown-linux-gnu",
+        "CMAKE_CXX_COMPILER_TARGET": "x86_64-unknown-linux-gnu",
+        "CMAKE_SYSROOT": "$env{LINUX_SYSROOT}"
       }
     },
     {
-      "name": "debug",
-      "inherits": "base",
-      "binaryDir": "${sourceDir}/build/debug",
+      "name": "cross-windows-debug",
+      "inherits": "base-debug",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
+        "CMAKE_SYSTEM_NAME": "Windows",
+        "CMAKE_SYSTEM_VERSION": "10.0",
+        "CMAKE_SYSTEM_PROCESSOR": "x86_64",
+        "CMAKE_C_COMPILER_TARGET": "x86_64-w64-windows-gnu",
+        "CMAKE_CXX_COMPILER_TARGET": "x86_64-w64-windows-gnu"
       }
     }
   ],
@@ -25,6 +47,14 @@
     {
       "name": "debug",
       "configurePreset": "debug"
+    },
+    {
+      "name": "cross-linux-debug",
+      "configurePreset": "cross-linux-debug"
+    },
+    {
+      "name": "cross-windows-debug",
+      "configurePreset": "cross-windows-debug"
     }
   ],
 
@@ -33,7 +63,21 @@
       "name": "debug",
       "steps": [
         { "type": "configure", "name": "debug" },
-        { "type": "build",     "name": "debug" }
+        { "type": "build", "name": "debug" }
+      ]
+    },
+    {
+      "name": "cross-linux-debug",
+      "steps": [
+        { "type": "configure", "name": "cross-linux-debug" },
+        { "type": "build", "name": "cross-linux-debug" }
+      ]
+    },
+    {
+      "name": "cross-windows-debug",
+      "steps": [
+        { "type": "configure", "name": "cross-windows-debug" },
+        { "type": "build", "name": "cross-windows-debug" }
       ]
     }
   ]
