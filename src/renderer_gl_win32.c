@@ -1,7 +1,9 @@
 #include "renderer_gl_platform.h"
 #include "platform_win32.h"
-#include <Windows.h>
+#include <windows.h>
 #include <wingdi.h>
+#include <GL/glew.h>
+#include <GL/wglew.h>
 
 #include "hc_log.h"
 #include "hc_assert.h"
@@ -10,16 +12,40 @@
 
 typedef struct {
     HWND window_handle; // borrowed from platform
-    HDC window_dc;      // owned
-    HGLRC glrc_handle;  // owned
+    HDC window_dc; // owned
+    HGLRC glrc_handle; // owned
 } R_Win32GL_State;
 
-static R_Win32GL_State g_win32gl_info = { 0 };
+static R_Win32GL_State g_win32gl_info;
 
-// WGL function pointers
-typedef BOOL WINAPI FType_wglSwapIntervalEXT(int interval);
-typedef int WINAPI FType_wglGetSwapIntervalEXT(void);
-static FType_wglSwapIntervalEXT *wglSwapIntervalEXT;
+//// WGL function type definitions
+//typedef HGLRC FType_wglCreateContextAttribsARB(HDC hDC, HGLRC hshareContext, const int *attribList);
+//typedef BOOL WINAPI FType_wglSwapIntervalEXT(int interval);
+//typedef int WINAPI FType_wglGetSwapIntervalEXT(void);
+//
+//// WGL function pointer definitions
+//static FType_wglCreateContextAttribsARB *wglCreateContextAttribsARB;
+//static FType_wglSwapIntervalEXT *wglSwapIntervalEXT;
+
+static inline void gl_print_version_info(void) {
+    finfo_re("GL", "GLEW version   : %s", (const char *)glewGetString(GLEW_VERSION));
+    finfo_re("GL", "OpenGL version : %s", glGetString(GL_VERSION));
+    finfo_re("GL", "GLSL version   : %s", glGetString(GL_SHADING_LANGUAGE_VERSION));
+    finfo_re("GL", "OpenGL vendor  : %s", glGetString(GL_VENDOR));
+    finfo_re("GL", "OpenGL renderer: %s", glGetString(GL_RENDERER));
+}
+
+static inline B32 glew_init(void) {
+    glewExperimental = GL_TRUE;
+
+    GLenum err = glewInit();
+    if (err != GLEW_OK) {
+        ferror_re("GL", "Failed to initialize GLEW: %s", (const char *)glewGetErrorString(err));
+        return false;
+    }
+
+    return true;
+}
 
 // TODO: Keep WGL-equivalent pixel format functions in mind for more control in the future (eg, wglChoosePixelFormatARB)
 // TODO: Allow the renderer to provide a different pixel format
@@ -107,72 +133,112 @@ static inline void win32gl_context_destroy(R_Win32GL_State state) {
 }
 
 B32 r_gl_platform_context_create(P_PlatformWindow *window) {
-    R_Win32GL_State init_info = { 0 };
+    HWND window_handle = { 0 };
+    HDC window_dc = { 0 };
+    HGLRC fake_glrc_handle = { 0 };
+    HGLRC modern_glrc_handle = { 0 };
 
     // Get Window Handle
     // -----------------
-    HWND window_handle = p_win32_window_get_handle(window);
+    window_handle = p_win32_window_get_handle(window);
     if (!window_handle) {
         R_Win32GL_ERROR("Failed to get valid window handle");
-        return false;
+        goto fail;
     }
 
     // Get Window Device Context
     // -------------------------
-    HDC window_dc = GetDC(window_handle);
+    window_dc = GetDC(window_handle);
     if (!window_dc) {
         R_Win32GL_ERROR("Failed to get window device context");
-        ReleaseDC(window_handle, window_dc);
-        return false;
+        goto fail;
     }
 
     // Set Pixel Format
     // ----------------
     if (!win32gl_set_pixel_format(window_dc)) {
         R_Win32GL_ERROR("Failed to set window pixel format");
-        ReleaseDC(window_handle, window_dc);
-        return false;
+        goto fail;
     }
 
     // Create OpenGL Context
     // ---------------------
-    HGLRC glrc_handle = wglCreateContext(window_dc);
-    if (!glrc_handle) {
-        R_Win32GL_ERROR("Failed to create OpenGL rendering context");
-        ReleaseDC(window_handle, window_dc);
-        return false;
+    fake_glrc_handle = wglCreateContext(window_dc);
+    if (!fake_glrc_handle) {
+        R_Win32GL_ERROR("Failed to obtain a legacy OpenGL rendering context for bootstrapping");
+        goto fail;
     }
 
     // Set OpenGL Context to Current Window
     // ------------------------------------
-    if (!wglMakeCurrent(window_dc, glrc_handle)) {
-        wglDeleteContext(glrc_handle);
-        ReleaseDC(window_handle, window_dc);
-        R_Win32GL_ERROR("Failed to set OpenGL rendering context to current window");
-        return false;
+    if (!wglMakeCurrent(window_dc, fake_glrc_handle)) {
+        R_Win32GL_ERROR("Failed to set legacy OpenGL rendering context to current window");
+        goto fail;
     }
 
-    //const GLubyte *extensions = glGetString(GL_EXTENSIONS);
-    //const GLubyte *extensions = glGetStringi(count, GL_EXTENSIONS);
-    //const char* term = "WGL_EXT_swap_control";
+    // Load OpenGL Symbols and Extensions
+    // ----------------------------------
+    {
+        if (!glew_init()) { goto fail; }
+        if (!WGLEW_ARB_create_context || !WGLEW_ARB_create_context_profile) {
+            ferror_re("GL", "Extension for requesting specific modern OpenGL context is not supported.");
+            goto fail;
+        }
 
-    // Load OpenGL Extensions
-    // ----------------------
-    wglSwapIntervalEXT = (FType_wglSwapIntervalEXT *)wglGetProcAddress("wglSwapIntervalEXT");
-    if (wglSwapIntervalEXT) {
-        if (!wglSwapIntervalEXT(1)) { warn_re("Renderer: Win32/GL", "Failed to enable VSync"); }
-    }
-    else {
-        WIN32_DEF_LAST_ERROR_MSG(err_msg);
-        ferror_re("Renderer: Win32/GL", "Failed to load WGL function \"wglSwapIntervalEXT\": %s", err_msg);
+        //wglCreateContextAttribsARB = (FType_wglCreateContextAttribsARB *)wglGetProcAddress("wglCreateContextAttribsARB");
+        HGLRC share_context = NULL; // for sharing data across contexts in the future
+        int attribs[] = { WGL_CONTEXT_MAJOR_VERSION_ARB, 3, // clang-format off
+                          WGL_CONTEXT_MINOR_VERSION_ARB, 2,
+                          WGL_CONTEXT_PROFILE_MASK_ARB,
+                          WGL_CONTEXT_CORE_PROFILE_BIT_ARB, 0 }; // clang-format on
+        //if (!wglCreateContextAttribsARB) {
+        //R_Win32GL_ERROR("Failed to get procedure wglCreateContextAttribsARB for creating modern OpenGL rendering context");
+        //goto fail;
+        //}
+        modern_glrc_handle = wglCreateContextAttribsARB(window_dc, share_context, attribs);
+        if (!modern_glrc_handle) {
+            R_Win32GL_ERROR("Failed to obtain a modern OpenGL rendering context");
+            goto fail;
+        }
+        if (!wglMakeCurrent(window_dc, modern_glrc_handle)) {
+            R_Win32GL_ERROR("Failed to set modern OpenGL rendering context to current window");
+            goto fail;
+        }
+        //finfo("Reinitializing GLEW for modern context");
+        if (!glew_init()) { goto fail; } // initialize GLEW with the modern context
+        gl_print_version_info();
+
+        //wglSwapIntervalEXT = (FType_wglSwapIntervalEXT *)wglGetProcAddress("wglSwapIntervalEXT");
+        if (wglSwapIntervalEXT) {
+            if (!wglSwapIntervalEXT(1)) { warn_re("Renderer: Win32/GL", "Failed to enable VSync"); }
+        }
+        else {
+            WIN32_DEF_LAST_ERROR_MSG(err_msg);
+            ferror_re("Renderer: Win32/GL", "Failed to load WGL function \"wglSwapIntervalEXT\": %s", err_msg);
+        }
     }
 
-    init_info.window_handle = window_handle;
-    init_info.window_dc = window_dc;
-    init_info.glrc_handle = glrc_handle;
-    g_win32gl_info = init_info;
+    // Cleanup
+    // -------
+    wglDeleteContext(fake_glrc_handle);
+
+    // Populate Init Info
+    // ------------------
+    g_win32gl_info = (R_Win32GL_State){
+        .window_handle = window_handle,
+        .window_dc = window_dc,
+        .glrc_handle = modern_glrc_handle,
+    };
 
     return true;
+
+fail:
+    wglMakeCurrent(window_dc, NULL);
+    wglDeleteContext(fake_glrc_handle);
+    wglDeleteContext(modern_glrc_handle);
+    ReleaseDC(window_handle, window_dc);
+    // NOTE: Do not release the window handle. It is owned by the platform. We borrow it.
+    return false;
 }
 
 /////////////////////////////////////////////////////////////////////////// SECTION: RENDERER API

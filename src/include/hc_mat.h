@@ -262,8 +262,8 @@ static inline B32 mat4f32_look_at(Mat4F32 *out, Vec3F32 eye, Vec3F32 target, Vec
         return false;
     }
 
-    f = vec3f32_norm(f);             // forward/look direction: vector pointing from camera (eye) toward target
-    r = vec3f32_norm(r);             // right direction: get the vector perpendicular to the forward and up directions
+    f = vec3f32_norm(f); // forward/look direction: vector pointing from camera (eye) toward target
+    r = vec3f32_norm(r); // right direction: get the vector perpendicular to the forward and up directions
     Vec3F32 u = vec3f32_cross(r, f); // corrected up direction: get the vector perpendicular to the forward and right directions
 
     // Camera-relative view matrix coordinates

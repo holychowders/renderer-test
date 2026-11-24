@@ -152,7 +152,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
                              GL_FLOAT,
                              GL_FALSE,
                              sizeof(instance_transforms[0]),
-                             (void *)(0)));                      // NOLINT(modernize-use-nullptr)
+                             (void *)(0))); // NOLINT(modernize-use-nullptr)
     GL(glVertexAttribDivisor(GL_ATTR_LOC_INSTANCE_POSITION, 1)); // attribute advances onces per instance, not vertex
 
     S32 exit_code = 0;

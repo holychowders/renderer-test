@@ -10,16 +10,6 @@
 
 ////////////////////////////////////////////////////////////////////////// SECTION: MISC
 
-static inline B32 glew_init(void) {
-    GLenum err = glewInit();
-    if (err != GLEW_OK) {
-        ferror_re("GL", "Failed to initialize GLEW: %s", (const char *)glewGetErrorString(err));
-        return false;
-    }
-    finfo_re("GL", "Using GLEW version %s", (const char *)glewGetString(GLEW_VERSION));
-    return true;
-}
-
 // TODO: Renderer API for these options
 static inline void gl_init(void) {
     GL(glEnable(GL_DEPTH_TEST));
@@ -377,7 +367,7 @@ void gl_texture_delete(GLuint *texture) {
 
 B32 r_renderer_init(P_PlatformWindow *window) {
     if (!r_gl_platform_context_create(window)) { return false; }
-    if (!glew_init()) { return false; }
+    //if (!glew_init()) { return false; }
     gl_init();
     return true;
 }

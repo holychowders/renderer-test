@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Windows.h>
+#include <windows.h>
 #include "platform.h"
 
 // TODO: Replace error logging with this where applicable
