@@ -18,8 +18,8 @@ static inline void gl_init(void) {
     GL(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 }
 
-B32 gl_check_errors(void) {
-    B32 has_error = false;
+bool gl_check_errors(void) {
+    bool has_error = false;
     GLenum gl_error = { 0 };
     while ((gl_error = glGetError()) != GL_NO_ERROR) {
         has_error = true;
@@ -167,7 +167,7 @@ static inline void gl_prg_delete(GLuint *prg) {
     *prg = 0;
 }
 
-static inline B32 gl_prg_verify(GLuint prg) {
+static inline bool gl_prg_verify(GLuint prg) {
     // Check Link Status
     GLint link_success = GL_FALSE;
     GL(glGetProgramiv(prg, GL_LINK_STATUS, &link_success));
@@ -194,7 +194,7 @@ static inline B32 gl_prg_verify(GLuint prg) {
     return (validate_success && link_success);
 }
 
-static inline B32 gl_prg_src_verify(GLuint shader, GLenum shader_type) {
+static inline bool gl_prg_src_verify(GLuint shader, GLenum shader_type) {
     GLint compile_success = GL_FALSE;
     GL(glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_success));
     if (!compile_success) {
@@ -223,14 +223,14 @@ static inline GLuint gl_prg_create(const char *vs_src, const char *fs_src) {
     GL(GLuint vs = glCreateShader(GL_VERTEX_SHADER));
     GL(glShaderSource(vs, 1, &vs_src, NULL));
     GL(glCompileShader(vs));
-    B32 vs_ok = gl_prg_src_verify(vs, GL_VERTEX_SHADER);
+    bool vs_ok = gl_prg_src_verify(vs, GL_VERTEX_SHADER);
 
     // Create Fragment Shader
     // ----------------------
     GL(GLuint fs = glCreateShader(GL_FRAGMENT_SHADER));
     GL(glShaderSource(fs, 1, &fs_src, NULL));
     GL(glCompileShader(fs));
-    B32 fs_ok = gl_prg_src_verify(fs, GL_FRAGMENT_SHADER);
+    bool fs_ok = gl_prg_src_verify(fs, GL_FRAGMENT_SHADER);
 
     // Create Program
     // --------------
@@ -240,7 +240,7 @@ static inline GLuint gl_prg_create(const char *vs_src, const char *fs_src) {
         GL(glAttachShader(prg, vs));
         GL(glAttachShader(prg, fs));
         GL(glLinkProgram(prg));
-        B32 prg_ok = gl_prg_verify(prg);
+        bool prg_ok = gl_prg_verify(prg);
         if (!prg_ok) {
             error_re("GL", "Failed to create shader program");
             GL(glDeleteProgram(prg));
@@ -257,7 +257,7 @@ static inline GLuint gl_prg_create(const char *vs_src, const char *fs_src) {
     return prg;
 }
 
-static inline B32 gl_prg_bind(GLuint prg) {
+static inline bool gl_prg_bind(GLuint prg) {
     if (!prg) {
         error_re("GL", "Failed to bind shader program (null shader program provided)");
         return false;
@@ -365,7 +365,7 @@ void gl_texture_delete(GLuint *texture) {
 // Basic
 // -----
 
-B32 r_renderer_init(P_PlatformWindow *window) {
+bool r_renderer_init(P_PlatformWindow *window) {
     if (!r_gl_platform_context_create(window)) { return false; }
     //if (!glew_init()) { return false; }
     gl_init();
@@ -388,7 +388,7 @@ void r_vertex_buffer_destroy(R_VertexBuffer *vb) {
     GL(glDeleteBuffers(1, &handle));
     vb->handle = 0;
 }
-void r_vertex_buffer_bind(R_VertexBuffer vb, B32 bind) {
+void r_vertex_buffer_bind(R_VertexBuffer vb, bool bind) {
     if (bind) { GL(glBindBuffer(GL_ARRAY_BUFFER, vb.handle)); }
     else { GL(glBindBuffer(GL_ARRAY_BUFFER, 0)); }
 }
@@ -409,7 +409,7 @@ void r_index_buffer_destroy(R_IndexBuffer *ib) {
     GL(glDeleteBuffers(1, &handle));
     ib->handle = 0;
 }
-void r_index_buffer_bind(R_IndexBuffer ib, B32 bind) {
+void r_index_buffer_bind(R_IndexBuffer ib, bool bind) {
     if (bind) { GL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ib.handle)); }
     else { GL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0)); }
 }
@@ -417,7 +417,7 @@ void r_index_buffer_bind(R_IndexBuffer ib, B32 bind) {
 // Shaders
 // -------
 
-B32 r_shader_program_bind(R_ShaderProgram prg) { return gl_prg_bind(prg.handle); }
+bool r_shader_program_bind(R_ShaderProgram prg) { return gl_prg_bind(prg.handle); }
 
 R_ShaderProgram r_shader_program_create(const char *vshader_path, const char *fshader_path, const char **uniform_names, U32 uniform_count) {
     R_ShaderProgram prg = { 0 };

@@ -35,7 +35,7 @@ static inline void gl_print_version_info(void) {
     finfo_re("GL", "OpenGL renderer: %s", glGetString(GL_RENDERER));
 }
 
-static inline B32 glew_init(void) {
+static inline bool glew_init(void) {
     glewExperimental = GL_TRUE;
 
     GLenum err = glewInit();
@@ -49,7 +49,7 @@ static inline B32 glew_init(void) {
 
 // TODO: Keep WGL-equivalent pixel format functions in mind for more control in the future (eg, wglChoosePixelFormatARB)
 // TODO: Allow the renderer to provide a different pixel format
-static inline B32 win32gl_set_pixel_format(HDC window_dc) {
+static inline bool win32gl_set_pixel_format(HDC window_dc) {
     // Specify Desired Pixel Format
     // ----------------------------
     PIXELFORMATDESCRIPTOR requested = { 0 };
@@ -132,7 +132,7 @@ static inline void win32gl_context_destroy(R_Win32GL_State state) {
     }
 }
 
-B32 r_gl_platform_context_create(P_PlatformWindow *window) {
+bool r_gl_platform_context_create(P_PlatformWindow *window) {
     HWND window_handle = { 0 };
     HDC window_dc = { 0 };
     HGLRC fake_glrc_handle = { 0 };

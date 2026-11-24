@@ -15,7 +15,7 @@
     gl_clear_errors();                                                                                                                               \
     gl_operation;                                                                                                                                    \
     ASSERT_MSG(!gl_check_errors(), #gl_operation)
-B32 gl_check_errors(void);
+bool gl_check_errors(void);
 void gl_clear_errors(void);
 
 ////////////////////////////////////////////////////////////////////////// SECTION: VAO (VERTEX ARRAY OBJECT)
@@ -68,11 +68,11 @@ typedef enum {
 // ------------------------
 //GLuint gl_prg_create(const char *vs_src, const char *fs_src);
 //void gl_prg_delete(GLuint *prg);
-//B32 gl_prg_src_verify(GLuint shader, GLenum shader_type);
-//B32 gl_prg_bind(GLuint prg);
+//bool gl_prg_src_verify(GLuint shader, GLenum shader_type);
+//bool gl_prg_bind(GLuint prg);
 //void gl_prg_unbind(void);
 //GLint gl_prg_get_u_loc(GLuint shader_program, const char *name);
-//B32 gl_prg_verify(GLuint prg);
+//bool gl_prg_verify(GLuint prg);
 
 ////////////////////////////////////////////////////////////////////////// SECTION: TEXTURES
 

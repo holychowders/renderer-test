@@ -2,6 +2,9 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#ifndef __cplusplus
+    #include <stdbool.h>
+#endif
 
 // SECTION: SIGNED INTS
 
@@ -33,14 +36,7 @@ typedef const uint16_t *UTF16;
 // SECTION: BOOLS
 
 #define BOOL_TO_STR(value) ((value) ? "true" : "false")
-#ifndef __cplusplus
 typedef int32_t B32;
-    //typedef int32_t bool;
-    #define false 0
-    #define true 1
-#else
-typedef bool B32;
-#endif
 
 // SECTION: STRINGS
 

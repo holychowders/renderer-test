@@ -5,7 +5,7 @@
 
 /////////////////////////////////////////////////////////////////////////// SECTION: BASIC
 
-B32 r_renderer_init(P_PlatformWindow *window);
+bool r_renderer_init(P_PlatformWindow *window);
 void r_renderer_shutdown(void);
 void r_renderer_basic(void);
 
@@ -17,7 +17,7 @@ typedef struct {
 
 R_VertexBuffer r_vertex_buffer_create(const void *data, size_t size);
 void r_vertex_buffer_destroy(R_VertexBuffer *vb);
-void r_vertex_buffer_bind(R_VertexBuffer vb, B32 bind);
+void r_vertex_buffer_bind(R_VertexBuffer vb, bool bind);
 
 /////////////////////////////////////////////////////////////////////////// SECTION: INDEX BUFFER
 
@@ -28,7 +28,7 @@ typedef struct {
 
 R_IndexBuffer r_index_buffer_create(const U32 *data, U32 count);
 void r_index_buffer_destroy(R_IndexBuffer *ib);
-void r_index_buffer_bind(R_IndexBuffer ib, B32 bind);
+void r_index_buffer_bind(R_IndexBuffer ib, bool bind);
 
 /////////////////////////////////////////////////////////////////////////// SECTION: MESH
 
@@ -52,7 +52,7 @@ typedef struct {
 } R_ShaderProgram;
 
 R_ShaderProgram r_shader_program_create(const char *vshader_path, const char *fshader_path, const char **uniform_names, U32 uniform_count);
-B32 r_shader_program_bind(R_ShaderProgram prg);
+bool r_shader_program_bind(R_ShaderProgram prg);
 
 /////////////////////////////////////////////////////////////////////////// SECTION: DRAWING
 

@@ -4,7 +4,7 @@
 
 ////////////////////////////////////////////////////////////////////////// SECTION: GLOBALS
 
-static B32 g_running = true;
+static bool g_running = true;
 static U32 g_current_window_width = 1920;
 static U32 g_current_window_height = 1080;
 

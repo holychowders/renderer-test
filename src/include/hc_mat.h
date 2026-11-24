@@ -125,7 +125,7 @@ static inline Mat2F32 mat2f32_mul(Mat2F32 a, Mat2F32 b) {
     return result;
 }
 
-static inline B32 mat2f32_eq(Mat2F32 a, Mat2F32 b) {
+static inline bool mat2f32_eq(Mat2F32 a, Mat2F32 b) {
     for (U32 row = 0; row < 2; ++row) {
         for (U32 column = 0; column < 2; ++column) {
             if (a.e[row][column] != b.e[row][column]) { return false; }
@@ -161,7 +161,7 @@ static inline Mat4F32 mat4f32_identity(void) {
     } }; // clang-format on
 }
 
-static inline B32 mat4f32_eq(Mat4F32 a, Mat4F32 b) {
+static inline bool mat4f32_eq(Mat4F32 a, Mat4F32 b) {
     for (U32 row = 0; row < 4; ++row) {
         for (U32 column = 0; column < 4; ++column) {
             if (a.e[row][column] != b.e[row][column]) { return false; }
@@ -251,7 +251,7 @@ static inline Mat4F32 mat4f32_perspective(F32 fov_y_rad, F32 aspect, F32 near_z,
 }
 
 /// NOTE: Returns false and outputs identity matrix if eye == target or up is parallel to the view direction.
-static inline B32 mat4f32_look_at(Mat4F32 *out, Vec3F32 eye, Vec3F32 target, Vec3F32 up) {
+static inline bool mat4f32_look_at(Mat4F32 *out, Vec3F32 eye, Vec3F32 target, Vec3F32 up) {
     // Compute orthonormal basis axes
     Vec3F32 f = vec3f32_sub(target, eye);
     Vec3F32 r = vec3f32_cross(f, up);

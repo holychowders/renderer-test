@@ -91,7 +91,7 @@ static inline LRESULT CALLBACK win32_window_proc(HWND hWnd, UINT uMsg, WPARAM wP
 }
 
 // TODO: Multiple window classes
-static inline B32 win32_window_class_register(void) {
+static inline bool win32_window_class_register(void) {
     WNDCLASSEXA wc = { 0 };
     wc.cbSize = sizeof(WNDCLASSEX);
     wc.style = CS_OWNDC;
@@ -121,7 +121,7 @@ static inline HWND win32_window_create(HINSTANCE hInstance, U32 width, U32 heigh
     }
     return handle;
 }
-static inline B32 win32_window_destroy(HWND window_handle) {
+static inline bool win32_window_destroy(HWND window_handle) {
     if (!window_handle) {
         warn_re("Win32", "Failed to destroy window: Null window handle provided");
         return false;
@@ -161,7 +161,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     return app_main();
 }
 
-B32 p_platform_init(void) { return win32_window_class_register(); }
+bool p_platform_init(void) { return win32_window_class_register(); }
 void p_platform_shutdown(void) {
     if (!UnregisterClassA(g_win32_window_class_name, g_win32_hinstance)) {
         win32_print_last_error("UnregisterClassA"); // TODO: proper error
@@ -186,7 +186,7 @@ void p_platform_window_destroy(P_PlatformWindow *window) {
     free(window);
 }
 
-B32 p_platform_process_events(S32 *exit_code) {
+bool p_platform_process_events(S32 *exit_code) {
     MSG msg = { 0 };
     while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
         if (msg.message == WM_QUIT) {
